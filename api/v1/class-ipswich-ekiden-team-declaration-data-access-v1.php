@@ -15,18 +15,14 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-namespace IpswichEventResultsAPI\V1;
-	
-require_once plugin_dir_path( __FILE__ ) .'/../config.php';
+namespace IpswichEkidenTeamDeclaration\V1;
 
-class Ipswich_Events_Results_Data_Access {		
+class Ipswich_Ekiden_Team_Declaration_Data_Access {		
 
-	private $rdb;
+	private $wpdb;
 
 	public function __construct() {
-				
-		$this->rdb = new \wpdb(EVENTS_RESULTS_DB_USER, EVENTS_RESULTS_DB_PASSWORD, EVENTS_RESULTS_DB_NAME, EVENTS_RESULTS_DB_HOST);		
-		$this->rdb->show_errors();
+
 	}
   
   public function getRaceResults($eventId, $year, $leg) {  	
