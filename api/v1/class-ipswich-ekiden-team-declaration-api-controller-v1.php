@@ -118,10 +118,6 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					'required'          => true,						
 					'validate_callback' => array( $this, 'is_valid_id' )
 					),
-        'leg'                => array(
-					'required'          => true,						
-					'validate_callback' => array( $this, 'is_valid_id' )
-					),
 				'field'           => array(
 					'required'          => true,
 					'validate_callback' => array( $this, 'is_valid_team_runner_update_field' )
@@ -146,6 +142,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 	}		
 		
 		public function permission_check( \WP_REST_Request $request ) {
+      return true; // TODO
 			$id = $this->basic_auth_handler($this->user);
 			if ( $id  <= 0 ) {				
 				return new \WP_Error( 'rest_forbidden',
@@ -214,13 +211,13 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     
     public function create_team(\WP_REST_Request $request) {
       $teamCaptainId; // TODO from authentication
-      $response = $this->data_access->create_team($teamCaptainId, $request['name'], $request['isAffiliated']);
+      $response = $this->data_access->create_team($teamCaptainId, $request['name'], $request['isAffiliated'], $request['clubId']);
 		
       return rest_ensure_response( $response );
     }     
 
     public function update_team(\WP_REST_Request $request) {      
-      $response = $this->data_access->create_team($request['id'], $request['field'], $request['value']);
+      $response = $this->data_access->update_team($request['id'], $request['field'], $request['value']);
 		
       return rest_ensure_response( $response );
     } 
@@ -232,7 +229,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     }   
 
     public function update_team_runner(\WP_REST_Request $request) {      
-      $response = $this->data_access->update_team_runner($request['id'], $request['leg'], $request['field'], $request['value']);
+      $response = $this->data_access->update_team_runner($request['id'], $request['field'], $request['value']);
 		
       return rest_ensure_response( $response );
     }     
