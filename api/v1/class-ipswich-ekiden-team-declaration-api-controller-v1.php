@@ -108,6 +108,22 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 				)
     ));
     
+    register_rest_route( $namespace, '/teams/(?P<id>[\d]+)/runners/(?P<leg>[1-6])', array(
+			'methods'             => \WP_REST_Server::CREATABLE,
+			'permission_callback' => array( $this, 'permission_check' ),
+			'callback'            => array( $this, 'add_team_runner' ),
+			'args'                => array(
+				'id'                => array(
+					'required'          => true,						
+					'validate_callback' => array( $this, 'is_valid_id' )
+					),
+        'leg'                => array(
+					'required'          => true,						
+					'validate_callback' => array( $this, 'is_valid_runner_leg' )
+					)
+				)
+    ));
+    
      // Patch - updates
 		register_rest_route( $namespace, '/teams/(?P<id>[\d]+)/runners/(?P<leg>[1-6])', array(
 			'methods'             => \WP_REST_Server::EDITABLE,
@@ -117,6 +133,10 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 				'id'                => array(
 					'required'          => true,						
 					'validate_callback' => array( $this, 'is_valid_id' )
+					),
+        'leg'                => array(
+					'required'          => true,						
+					'validate_callback' => array( $this, 'is_valid_runner_leg' )
 					),
 				'field'           => array(
 					'required'          => true,
@@ -203,36 +223,84 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     }
     
     public function get_my_teams(\WP_REST_Request $request) {
-      $teamCaptainId; // TODO from authentication
-      $response = $this->data_access->get_teams($teamCaptainId);
+      $current_user = wp_get_current_user();
+      
+      if (!($current_user instanceof \WP_User) || $current_user->ID == 0) {
+        return new \WP_Error( 'rest_forbidden',
+					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403 ) );
+      }
+      
+      $response = $this->data_access->get_myteams($current_user->ID);
 		
       return rest_ensure_response( $response );
     }    
     
     public function create_team(\WP_REST_Request $request) {
-      $teamCaptainId; // TODO from authentication
-      $response = $this->data_access->create_team($teamCaptainId, $request['name'], $request['isAffiliated'], $request['clubId']);
+      $current_user = wp_get_current_user();
+      
+      if (!($current_user instanceof \WP_User) || $current_user->ID == 0) {
+        return new \WP_Error( 'rest_forbidden',
+					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403, 'User' => $current_user->ID ) );
+      }
+      
+      $response = $this->data_access->create_team($current_user->ID, $request['name'], $request['isAffiliated'], $request['clubId']);
 		
       return rest_ensure_response( $response );
     }     
 
-    public function update_team(\WP_REST_Request $request) {      
+    public function update_team(\WP_REST_Request $request) {   
+      if (!$this->is_valid_team_captain($request['id'])) {
+        return new \WP_Error( 'rest_forbidden',
+					sprintf( 'You do not have enough privileges to use this update this team.' ), array( 'status' => 403 ) );
+      }
+        
       $response = $this->data_access->update_team($request['id'], $request['field'], $request['value']);
 		
       return rest_ensure_response( $response );
     } 
 
     public function delete_team(\WP_REST_Request $request) {
+      if (!$this->is_valid_team_captain($request['id'])) {
+        return new \WP_Error( 'rest_forbidden',
+					sprintf( 'You do not have enough privileges to use this delete this team.' ), array( 'status' => 403 ) );
+      }
+      
       $response = $this->data_access->delete_team($request['id']);
 		
       return rest_ensure_response( $response );
     }   
+    
+     public function add_team_runner(\WP_REST_Request $request) {
+      if (!$this->is_valid_team_captain($request['id'])) {
+        return new \WP_Error( 'rest_forbidden',
+					sprintf( 'You do not have enough privileges to use this update this team.' ), array( 'status' => 403 ) );
+      }
+      
+      $response = $this->data_access->add_team_runner($request['id'], $request['leg'], $request['name'], $request['genderId'], $request['ageCategory']);
+		
+      return rest_ensure_response( $response );
+    } 
 
-    public function update_team_runner(\WP_REST_Request $request) {      
-      $response = $this->data_access->update_team_runner($request['id'], $request['field'], $request['value']);
+    public function update_team_runner(\WP_REST_Request $request) {     
+      if (!$this->is_valid_team_captain($request['id'])) {
+        return new \WP_Error( 'rest_forbidden',
+					sprintf( 'You do not have enough privileges to use this update this team.' ), array( 'status' => 403 ) );
+      } 
+      
+      $response = $this->data_access->update_team_runner($request['id'], $request['leg'], $request['field'], $request['value']);
 		
       return rest_ensure_response( $response );
     }     
+    
+    private function is_valid_team_captain ($teamId) {
+      $current_user = wp_get_current_user();
+      
+      if (!($current_user instanceof \WP_User) || $current_user->ID == 0)
+        return false;
+      
+      $response = $this->data_access->get_team($teamId);
+      return $response->captainId == $current_user->ID;      
+    }
     
 		private function basic_auth_handler( $user ) {
 			// Don't authenticate twice
@@ -273,12 +341,21 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 		}
 	}		
   
+  	public function is_valid_runner_leg( $value, $request, $key ) {
+		if (!in_array($value, array(1,2,3,4,5,6))) {
+			return new \WP_Error( 'rest_invalid_param',
+				sprintf( '%s %d must between 1 and 6', $key, $value ), array( 'status' => 400 ) );
+		} else {
+			return true;
+		}
+	}
+  
   public function is_valid_team_update_field($value, $request, $key){
-			if ( $value == 'name' || $value == 'isAffiliated' ) {
+			if ( $value == 'name' || $value == 'clubId' ) {
 				return true;
 			} else {
 				return new \WP_Error( 'rest_invalid_param',
-					sprintf( '%s %d must be name or isAffiliated only.', $key, $value ), array( 'status' => 400 ) );
+					sprintf( '%s %d must be name or clubId only.', $key, $value ), array( 'status' => 400 ) );
 			} 			
 		}
     

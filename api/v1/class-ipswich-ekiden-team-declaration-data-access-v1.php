@@ -14,17 +14,16 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
-
 namespace IpswichEkidenTeamDeclaration\V1;
-
-require_once("../../../../../wp-load.php");
 
 class Ipswich_Ekiden_Team_Declaration_Data_Access {		
 
-	global $wpdb;
+	private $db;
+  
+  const Unattached = 989;
 
 	public function __construct() {
-
+		$this->db = $GLOBALS['wpdb'];
 	}
   
   public function get_clubs() {  	
@@ -33,7 +32,10 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
               FROM ietd_clubs 
               ORDER BY name";
 							
-			$results = $wpdb->get_results($sql, OBJECT);
+			$results = $this->db->get_results($sql, OBJECT);
+      
+      if ($this->db->num_rows == 0)
+				return array();
 			
 			if (!$results)	{			
 				return new \WP_Error( 'get_clubs',
@@ -51,7 +53,32 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
               ORDER BY c.name, t.name
         ";
 							
-			$results = $wpdb->get_results($sql, OBJECT);
+			$results = $this->db->get_results($sql, OBJECT);
+      
+      if ($this->db->num_rows == 0)
+				return array();
+			
+			if (!$results)	{			
+				return new \WP_Error( 'get_teams',
+						'Unknown error in reading results from the database', array( 'status' => 500 ) );			
+			}
+
+			return $results;
+	}
+	
+	    public function get_myteams($captainId) {  	
+      
+      $sql = $this->db->prepare("SELECT t.id as id, t.name as name, t.affiliated as isAffiliated, c.name as clubName, 0 as complete
+              FROM ietd_teams t
+              INNER JOIN ietd_clubs c on c.id = t.club_id
+			  WHERE t.captain_id = %d
+              ORDER BY c.name, t.name
+        ", $captainId);
+							
+			$results = $this->db->get_results($sql, OBJECT);
+      
+      if ($this->db->num_rows == 0)
+				return array();
 			
 			if (!$results)	{			
 				return new \WP_Error( 'get_teams',
@@ -62,89 +89,119 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 	}
   
       public function get_team($teamId) {  	
-      
-      $sql = $wpdb->prepare("SELECT t.id as teamId, t.name as teamName, t.affiliated as isAffiliated, t.club_id as clubId, c.name as clubName, r.id as runnerId, r.name as runnerName, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
-            FROM ietd_teams t
-            INNER JOIN ietd_clubs c on c.id = t.club_id
-            INNER JOIN ietd_team_runners tr ON t.id = tr.team_id
+            $sql = $this->db->prepare("SELECT t.id as id, t.name as name, t.affiliated as isAffiliated, c.name as clubName, 0 as complete, captain_id as captainId
+              FROM ietd_teams t
+              INNER JOIN ietd_clubs c on c.id = t.club_id
+			  WHERE t.id = %d
+              ORDER BY c.name, t.name
+        ", $teamId);
+		  
+		  $team = $this->db->get_results($sql, OBJECT);
+		  
+      $sql = $this->db->prepare("SELECT r.id as runnerId, r.name as runnerName, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
+            FROM ietd_team_runners tr
             INNER JOIN ietd_runners r ON r.id = tr.runner_id
-            WHERE t.id = %d", $teamId);
+            WHERE tr.team_id = %d", $teamId);
 							
-			$results = $wpdb->get_results($sql, OBJECT);
-			
-			if (!$results)	{			
-				return new \WP_Error( 'get_team',
-						'Unknown error in reading results from the database', array( 'status' => 500 ) );			
-			}
+			$runners = $this->db->get_results($sql, OBJECT);
+		  		  
+			$response = new \stdClass;
+			$response->team = $team;
+		  $response->runners = $runners;
 
-			return $results;
+			return $response;
 	}
   
       public function create_team($teamCaptainId, $name, $isAffiliated, $clubId) {  	
       
-      $sql = $wpdb->prepare("INSERT INTO ietd_teams(name, affiliated, club_id, captainId) VALUES (%s, %d, %d, %d)", $name, $isAffiliated, $clubId, $teamCaptainId);
+      $sql = $this->db->prepare("INSERT INTO ietd_teams(name, affiliated, club_id, captain_id) VALUES (%s, %d, %d, %d)", $name, $isAffiliated, $clubId, $teamCaptainId);
 							
-			$result = $wpdb->query($sql, OBJECT);
+			$result = $this->db->query($sql, OBJECT);
 			
       if ($result)	{	
-        return $this->get_team($this->jdb->insert_id);
+        return $this->get_team($this->db->insert_id);
       }
       	
 			return new \WP_Error( 'create_team',
-						'Unknown error in reading results from the database', array( 'status' => 500 ) );			
+						'Unknown error in reading results from the database', array( 'status' => 500, 'sql' => $sql ) );			
 	}
   
-   public function update_team($id, $field, $value) {  	
+   public function update_team($id, $field, $value) {  	     
       
-      $result = $wpdb->update( 
-					'ietd_teams', 
-					array( 
-						$field => $value
-					), 
-					array( 'id' => $id ), 
-					array( 
-						'%s'
-					), 
-					array( '%d' ) 
-				);
-
-				if ($result)
-				{
-					return $this->get_team($id);
-				}
-				
-				return new \WP_Error( 'update_team',
-						'Unknown error in updating team in to the database'.$sql, array( 'status' => 500 ) );
+      switch ($field) {
+        case "name":
+             $sql = $this->db->prepare("UPDATE ietd_teams SET name = '%s' WHERE id = %d", $value, $id);             
+            break;
+        case "clubId":
+            if ($value == self::Unattached) {
+              $sql = $this->db->prepare("UPDATE ietd_teams SET club_id = %d, affiliated = 0 WHERE id = %d", $value, $id);
+            } else {
+              $sql = $this->db->prepare("UPDATE ietd_teams SET club_id = %d, affiliated = 1 WHERE id = %d", $value, $id);
+            }            
+            break;
+    }
+    
+    $result = $this->db->query($sql, OBJECT);
+        
+		return $this->get_team($id);
 	}
   
-     public function update_team_runner($id, $field, $value) {  	
+        public function add_team_runner($teamId, $leg, $name, $genderId, $ageCategory) {  	
       
-      $result = $wpdb->update( 
-					'ietd_runners', 
-					array( 
-						$field => $value
-					), 
-					array( 'id' => $id ), 
-					array( 
-						'%s'
-					), 
-					array( '%d' ) 
-				);
-
-				if ($result)
-				{
-					return null;
-				}
+      $sql = $this->db->prepare("INSERT INTO ietd_runners(name, age_category, gender) VALUES (%s, %s, %d)", $name, $ageCategory, $genderId);
+							
+			$result = $this->db->query($sql, OBJECT);
+			
+      if ($result)	{	
+      
+         $sql = $this->db->prepare("INSERT INTO ietd_team_runners(team_id, runner_id, leg) VALUES (%d, %d, %d)", $teamId, $this->db->insert_id, $leg);
+         
+         $result = $this->db->query($sql, OBJECT);
+         
+         if (!$result) {
+         return new \WP_Error( 'add_team_runner',
+						'Unknown error in updating team in to the database', array( 'status' => 500 ) );
+         }
+      }
+      	
+			return;			
+	}
+  
+     public function update_team_runner($teamId, $leg, $field, $value) {  	
+       switch ($field) {
+        case "name": 
+          $sql = $this->db->prepare("UPDATE ietd_team_runners tr, ietd_runners r
+                                     SET r.name = '%s' 
+                                     WHERE tr.runner_id = r.id AND tr.leg = %d AND tr.team_id = %d", $value, $leg, $teamId);
+          break;
+        case "ageCategory": 
+          $sql = $this->db->prepare("UPDATE ietd_team_runners tr, ietd_runners r
+                                     SET r.age_category = '%s' 
+                                     WHERE tr.runner_id = r.id AND tr.leg = %d AND tr.team_id = %d", $value, $leg, $teamId);
+          break;
+        case "gender": 
+          $sql = $this->db->prepare("UPDATE ietd_team_runners tr, ietd_runners r
+                                     SET r.gender = %d 
+                                     WHERE tr.runner_id = r.id AND tr.leg = %d AND tr.team_id = %d", $value, $leg, $teamId);
+          break;
+        default:
+          return new \WP_Error( 'update_team_runner',
+						'Invalid request', array( 'status' => 400 ) );         
+       }
 				
-				return new \WP_Error( 'update_team',
-						'Unknown error in updating team in to the database'.$sql, array( 'status' => 500 ) );
+			$result = $this->db->query($sql, OBJECT);
+         
+         if (!$result) {
+         return new \WP_Error( 'update_team_runner',
+						'Unknown error in updating team in to the database', array( 'status' => 500 ) );
+         }
 	}
 	
     public function delete_team($id) {  	
             
-			$sql = $wpdb->prepare('DELETE FROM teams WHERE id = %d;', $id);
+			$sql = $this->db->prepare("DELETE FROM ietd_teams WHERE id = %d", $id);
 
-			$result = $this->jdb->query($sql);
+			$result = $this->db->query($sql);
       	
       if (!$result) {	
 			return new \WP_Error( 'delete_team',
