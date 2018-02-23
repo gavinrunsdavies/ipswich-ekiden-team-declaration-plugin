@@ -20,7 +20,11 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 		$this->register_routes_authentication($namespace);
 		$this->register_routes_manager($namespace);						
 		
-		add_filter( 'rest_endpoints', array( $this, 'remove_wordpress_core_endpoints'), 10, 1 );			
+		add_filter( 'rest_endpoints', array( $this, 'remove_wordpress_core_endpoints'), 10, 1 );		
+
+    // Customise new user email
+    add_filter( 'wp_new_user_notification_email', array($this, 'custom_wp_new_user_notification_email'), 10, 3 );
+    
 	}
 	
 	public function plugins_loaded() {
@@ -31,23 +35,24 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 		} );					
 	}
 	
-	private function register_routes_authentication($namespace) {					
-		register_rest_route( $namespace, '/login', array(
-			'methods'             => \WP_REST_Server::CREATABLE,
-			'callback'            => array( $this, 'login' ),
-			'args'                => array(
-				'username'           => array(
-					'required'          => true						
-					),
-				'password'           => array(
-					'required'          => true						
-					)
-				)				
-		) );					
-    
+	private function register_routes_authentication($namespace) {
     register_rest_route( $namespace, '/users', array(
 			'methods'             => \WP_REST_Server::CREATABLE,
-			'callback'            => array( $this, 'create_user' )				
+			'callback'            => array( $this, 'create_user' ),
+			'args'                => array(
+				'email'           => array(
+					'required'          => true
+					),
+        'password'           => array(
+					'required'          => true
+					),
+        'firstName'           => array(
+					'required'          => true
+					),
+        'lastName'           => array(
+					'required'          => true
+					)
+				)			
 		) ); 
 	}
 
@@ -162,17 +167,14 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 	}		
 		
 		public function permission_check( \WP_REST_Request $request ) {
-      return true; // TODO
-			$id = $this->basic_auth_handler($this->user);
-			if ( $id  <= 0 ) {				
-				return new \WP_Error( 'rest_forbidden',
-					sprintf( 'You must be logged in to use this API.' ), array( 'status' => 403 ) );
-			} else if (!user_can( $id, 'publish_pages' )){
-				return new \WP_Error( 'rest_forbidden',
-					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403 ) );
-			} else {
-				return true;
-			}
+      $current_user = wp_get_current_user();
+      
+      if (!($current_user instanceof \WP_User) || $current_user->ID == 0) {
+        return new \WP_Error( 'rest_forbidden',
+					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403, 'User' => $current_user->ID ) );
+      }
+      
+      return true;
 		}
 	
 		/**
@@ -190,20 +192,48 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 
 			return $endpoints;
 		}
-		
-		public function login(\WP_REST_Request $request) {
-			$username = base64_decode($request['username']);
-			$password = base64_decode($request['password']);
-			
-			$this->user = wp_authenticate( $username, $password );
-			
-			return $this->user;
-		}
     
-    public function create_user(\WP_REST_Request $request) {
-
+    public function custom_wp_new_user_notification_email( $wp_new_user_notification_email, $user, $blogname ) {
+        $subject = sprintf("Ipswich Ekiden Team Declaration Registration - %s", $user->user_login);
+        $message = sprintf("Hi %s,\r\n\r\n", $user->display_name);
+        $message .= "Welcome to the Ipswich Ekiden Team Declaration Portal. To access the portal visit www.ipswichekiden.co.uk/app and use this email as login username and the password you choose at registration.\r\n\r\n";        
+        $message .= "Any questions please contact support.";
+        //$wp_new_user_notification_email['headers'] = $headers; TODO
+        $wp_new_user_notification_email['subject'] = $subject;
+        $wp_new_user_notification_email['message'] = $message;
+        return $wp_new_user_notification_email;
     }
     
+    public function create_user(\WP_REST_Request $request) {      
+      $displayName = sprintf('%s %s', $request['firstName'], $request['lastName']);
+      $user_id = wp_insert_user( array( 
+        'user_login'  =>  $request['email'],
+        'user_email'  =>  $request['email'],
+        'user_pass'   => $request['password'],
+        'display_name' => $displayName,
+        'first_name' => $request['firstName'],
+        'last_name' => $request['lastName'],
+        'role' => 'EkidenTeamDeclaratioon'
+      ) );
+
+      if ( is_wp_error( $user_id ) ) {
+         return new \WP_Error( 'rest_invalid_param',
+					sprintf( 'Registration update failed for username %s', $request['email'] ), array( 'status' => 400 ) );
+      }  
+      
+      // Inform user and admin of new registration
+      wp_new_user_notification($user_id, null, "both");
+      
+      $response = new \stdClass;
+			$response->display_name = $displayName;
+		  $response->email = $request['email'];
+      $response->firstName = $request['firstName'];
+      $response->lastName = $request['lastName'];
+      $response->password = $request['password'];
+
+      return rest_ensure_response( $response );      
+    }
+       
     public function get_clubs(\WP_REST_Request $request) {
       $response = $this->data_access->get_clubs();
 		
@@ -301,35 +331,6 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       $response = $this->data_access->get_team($teamId);
       return $response->captainId == $current_user->ID;      
     }
-    
-		private function basic_auth_handler( $user ) {
-			// Don't authenticate twice
-			if ( ! empty( $user ) ) {
-				return $user->ID;
-			}
-			
-			// Check that we're trying to authenticate
-			if ( !isset( $_SERVER['PHP_AUTH_USER'] ) ) {
-				return $user->ID;
-			}
-			$username = $_SERVER['PHP_AUTH_USER'];
-			$password = $_SERVER['PHP_AUTH_PW'];
-			
-			/**
-			 * In multi-site, wp_authenticate_spam_check filter is run on authentication. This filter calls
-			 * get_currentuserinfo which in turn calls the determine_current_user filter. This leads to infinite
-			 * recursion and a stack overflow unless the current function is removed from the determine_current_user
-			 * filter during authentication.
-			 */
-			remove_filter( 'determine_current_user', 'json_basic_auth_handler', 20 );
-			$user = wp_authenticate( $username, $password );
-			add_filter( 'determine_current_user', 'json_basic_auth_handler', 20 );
-			if ( is_wp_error( $user ) ) {				
-				return 0;
-			}
-			
-			return $user->ID;
-		}	
 
 	public function is_valid_id( $value, $request, $key ) {
 		if ( $value < 1 ) {
@@ -367,4 +368,28 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					sprintf( '%s %d must be name, gender or ageCategory only.', $key, $value ), array( 'status' => 400 ) );
 			} 			
 		}
+    
+    public function is_valid_new_user($model, $request, $key) {
+      if ( empty($model['email'])) {				
+				return new \WP_Error( 'rest_invalid_param',
+					sprintf( '%s has invalid email value.', $key), array( 'status' => 400 ) );
+			} 
+      
+      if ( empty($model['password'])) {				
+				return new \WP_Error( 'rest_invalid_param',
+					sprintf( '%s has invalid password value.', $key), array( 'status' => 400 ) );
+			} 
+      
+      if ( empty($model['firstName'])) {				
+				return new \WP_Error( 'rest_invalid_param',
+					sprintf( '%s has invalid firstName value.', $key), array( 'status' => 400 ) );
+			} 
+      
+      if ( empty($model['lastName'])) {				
+				return new \WP_Error( 'rest_invalid_param',
+					sprintf( '%s has invalid lastName value.', $key), array( 'status' => 400 ) );
+			}
+
+      return true;      
+    }
 }
