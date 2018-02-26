@@ -89,27 +89,24 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 	}
   
       public function get_team($teamId) {  	
-            $sql = $this->db->prepare("SELECT t.id as id, t.name as name, t.affiliated as isAffiliated, c.name as clubName, 0 as complete, captain_id as captainId
+       $sql = $this->db->prepare("SELECT t.id as id, t.name as name, t.affiliated as isAffiliated, c.name as clubName, t.captain_id as captainId
               FROM ietd_teams t
               INNER JOIN ietd_clubs c on c.id = t.club_id
 			  WHERE t.id = %d
-              ORDER BY c.name, t.name
         ", $teamId);
 		  
-		  $team = $this->db->get_results($sql, OBJECT);
+		  $team = $this->db->get_row($sql);
 		  
-      $sql = $this->db->prepare("SELECT r.id as runnerId, r.name as runnerName, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
+      $sql = $this->db->prepare("SELECT r.id as id, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
             FROM ietd_team_runners tr
             INNER JOIN ietd_runners r ON r.id = tr.runner_id
             WHERE tr.team_id = %d", $teamId);
 							
-			$runners = $this->db->get_results($sql, OBJECT);
-		  		  
-			$response = new \stdClass;
-			$response->team = $team;
-		  $response->runners = $runners;
-
-			return $response;
+			$runners = $this->db->get_results($sql, OBJECT);          
+      
+      $team->runners = $runners;
+         
+			return $team;
 	}
   
       public function create_team($teamCaptainId, $name, $isAffiliated, $clubId) {  	

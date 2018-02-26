@@ -392,4 +392,43 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 
       return true;      
     }
+    
+    private function get_team_category($team) {
+      if (count($team->runners)) != 6) {
+        return null; 
+      }
+      
+      var $teamGender = $team->runners[0].gender;
+      var $teamCategory;
+      var $youngestMale = "Open";
+      var $youngestFemale = "Open";
+      
+      uasort($team->runners, array($this, 'compareAgeCategories'));
+      
+      for ($i = 0; $i < count($team->runners); $i++) {
+        if ( empty($team->runners[$i]->name) || 
+              empty($team->runners[$i]->ageCategory) ||
+              $team->runners[$i].gender == 0) {
+            return null;
+        }
+        
+        if ($team->isAffiliated == 0) {
+          $teamCategory = 'Unaffiliated';
+          continue;
+        }
+        
+        if ($team->runners[$i].gender != $teamGender)
+        
+      }
+      
+      return true;
+    }
+    
+    private function compareAgeCategories($a, $b) {
+			if ($a->ageCategory == $b->ageCategory) {
+				return 0;
+			}
+			
+			return ($a->ageCategory > $b->ageCategory) ? 1 : -1;
+		}
 }
