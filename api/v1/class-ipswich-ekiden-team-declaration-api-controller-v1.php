@@ -8,6 +8,10 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 	private $data_access;
 	
 	private $user;
+  
+  const Unattached = 989;
+  const MaleId = 1;
+  const FemaleId = 2;
 	
 	public function __construct() {
 		$this->data_access = new Ipswich_Ekiden_Team_Declaration_Data_Access();
@@ -198,7 +202,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
         $message = sprintf("Hi %s,\r\n\r\n", $user->display_name);
         $message .= "Welcome to the Ipswich Ekiden Team Declaration Portal. To access the portal visit www.ipswichekiden.co.uk/app and use this email as login username and the password you choose at registration.\r\n\r\n";        
         $message .= "Any questions please contact support.";
-        //$wp_new_user_notification_email['headers'] = $headers; TODO
+        $wp_new_user_notification_email['headers'] = "From: Ipswich Ekiden <admin@ipswichekiden.co.uk>";
         $wp_new_user_notification_email['subject'] = $subject;
         $wp_new_user_notification_email['message'] = $message;
         return $wp_new_user_notification_email;
@@ -241,7 +245,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     }
     
     public function get_teams(\WP_REST_Request $request) {
-      $response = $this->data_access->get_teams();
+      $response = $this->data_access->get_teams();      
 		
       return rest_ensure_response( $response );
     }
@@ -249,6 +253,8 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     public function get_team(\WP_REST_Request $request) {
       $response = $this->data_access->get_team($request['id']);
 		
+      $this->update_team_category($response);
+      
       return rest_ensure_response( $response );
     }
     
@@ -260,7 +266,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403 ) );
       }
       
-      $response = $this->data_access->get_myteams($current_user->ID);
+      $response = $this->data_access->get_myteams($current_user->ID);           
 		
       return rest_ensure_response( $response );
     }    
@@ -271,9 +277,9 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       if (!($current_user instanceof \WP_User) || $current_user->ID == 0) {
         return new \WP_Error( 'rest_forbidden',
 					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403, 'User' => $current_user->ID ) );
-      }
+      }     
       
-      $response = $this->data_access->create_team($current_user->ID, $request['name'], $request['isAffiliated'], $request['clubId']);
+      $response = $this->data_access->create_team($current_user->ID, $request['name'], $clubId);      
 		
       return rest_ensure_response( $response );
     }     
@@ -286,6 +292,8 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
         
       $response = $this->data_access->update_team($request['id'], $request['field'], $request['value']);
 		
+      $this->update_team_category($response);
+     
       return rest_ensure_response( $response );
     } 
 
@@ -307,7 +315,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       }
       
       $response = $this->data_access->add_team_runner($request['id'], $request['leg'], $request['name'], $request['genderId'], $request['ageCategory']);
-		
+            	
       return rest_ensure_response( $response );
     } 
 
@@ -394,41 +402,71 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     }
     
     private function get_team_category($team) {
-      if (count($team->runners)) != 6) {
+      if (count($team->runners) != 6) {
         return null; 
       }
       
-      var $teamGender = $team->runners[0].gender;
-      var $teamCategory;
-      var $youngestMale = "Open";
-      var $youngestFemale = "Open";
+      $teamCategory;
+      $youngestMale = "V70";
+      $youngestFemale = "V70";
+      $allMale = true;
+      $allFemale = true;
+      $numberOfFemale = 0;      
       
-      uasort($team->runners, array($this, 'compareAgeCategories'));
-      
-      for ($i = 0; $i < count($team->runners); $i++) {
+      for ($i = 0; $i < count($team->runners); $i++) {        
         if ( empty($team->runners[$i]->name) || 
               empty($team->runners[$i]->ageCategory) ||
-              $team->runners[$i].gender == 0) {
+              $team->runners[$i]->gender == 0) {
             return null;
         }
         
-        if ($team->isAffiliated == 0) {
+        if ($team->clubId == self::Unattached) {
           $teamCategory = 'Unaffiliated';
           continue;
         }
         
-        if ($team->runners[$i].gender != $teamGender)
-        
+        if ($team->runners[$i]->gender == self::MaleId) {
+          $allFemale = false;
+          
+          if ($team->runners[$i]->ageCategory < $youngestMale) {
+            $team->runners[$i]->ageCategory = $youngestMale;
+          }
+        } elseif ($team->runners[$i]->gender == self::FemaleId) {
+          $allMale = false;
+          $numberOfFemale++;
+          
+          if ($team->runners[$i]->ageCategory < $youngestFemale) {
+            $team->runners[$i]->ageCategory = $youngestFemale;
+          }
+        }        
       }
       
-      return true;
-    }
+      if ($allMale && $youngestMale == "Open") {
+        $teamCategory = "MensOpen";
+      } elseif ($allMale && $youngestMale == "V40") {
+        $teamCategory = "MensVet";
+      } elseif ($allMale && $youngestMale == "V50") {
+        $teamCategory = "MensSuperVet";
+      } elseif ($allFemale && $youngestFemale == "Open") {
+        $teamCategory = "LadiesOpen";
+      } elseif ($allFemale && $youngestFemale == "V35") {
+        $teamCategory = "LadiesVet";
+      } elseif ($allFemale && $youngestFemale == "V45") {
+        $teamCategory = "LadiesSuperVet";
+      } elseif (($youngestMale == "V60" && $allMale) || ($youngestFemale == "V60" && $allFemale) || ($$youngestMale >= "V60" && $youngestFemale >= "V60")) {
+        $teamCategory = "Over60";
+      } elseif (($youngestMale == "V70" && $allMale) || ($youngestFemale == "V70" && $allFemale) || ($$youngestMale >= "V70" && $youngestFemale >= "V70")) {
+        $teamCategory = "Over70";
+      } elseif ($numberOfFemale >= 2 && $allFemale == false) {
+        $teamCategory = "Mixed";
+      }
+      
+      return $teamCategory;
+    }    
     
-    private function compareAgeCategories($a, $b) {
-			if ($a->ageCategory == $b->ageCategory) {
-				return 0;
-			}
-			
-			return ($a->ageCategory > $b->ageCategory) ? 1 : -1;
-		}
+    private function update_team_category($team) {
+       $teamCategory = $this->get_team_category($team);
+      $team->complete = ($teamCategory != null);
+      $team->category = $teamCategory;      
+    }
 }

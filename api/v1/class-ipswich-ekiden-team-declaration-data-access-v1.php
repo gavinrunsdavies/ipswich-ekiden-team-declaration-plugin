@@ -18,9 +18,7 @@ namespace IpswichEkidenTeamDeclaration\V1;
 
 class Ipswich_Ekiden_Team_Declaration_Data_Access {		
 
-	private $db;
-  
-  const Unattached = 989;
+	private $db; 
 
 	public function __construct() {
 		$this->db = $GLOBALS['wpdb'];
@@ -47,11 +45,10 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
   
     public function get_teams() {  	
       
-      $sql = "SELECT t.id as id, t.name as name, t.affiliated as isAffiliated, c.name as clubName, 0 as complete
+      $sql = "SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName
               FROM ietd_teams t
               INNER JOIN ietd_clubs c on c.id = t.club_id
-              ORDER BY c.name, t.name
-        ";
+              ORDER BY c.name, t.name";
 							
 			$results = $this->db->get_results($sql, OBJECT);
       
@@ -68,11 +65,11 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 	
 	    public function get_myteams($captainId) {  	
       
-      $sql = $this->db->prepare("SELECT t.id as id, t.name as name, t.affiliated as isAffiliated, c.name as clubName, 0 as complete
+      $sql = $this->db->prepare("SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName
               FROM ietd_teams t
               INNER JOIN ietd_clubs c on c.id = t.club_id
 			  WHERE t.captain_id = %d
-              ORDER BY c.name, t.name
+              ORDER BY t.name
         ", $captainId);
 							
 			$results = $this->db->get_results($sql, OBJECT);
@@ -89,7 +86,7 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 	}
   
       public function get_team($teamId) {  	
-       $sql = $this->db->prepare("SELECT t.id as id, t.name as name, t.affiliated as isAffiliated, c.name as clubName, t.captain_id as captainId
+       $sql = $this->db->prepare("SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.captain_id as captainId
               FROM ietd_teams t
               INNER JOIN ietd_clubs c on c.id = t.club_id
 			  WHERE t.id = %d
@@ -105,13 +102,13 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 			$runners = $this->db->get_results($sql, OBJECT);          
       
       $team->runners = $runners;
-         
+      
 			return $team;
 	}
   
-      public function create_team($teamCaptainId, $name, $isAffiliated, $clubId) {  	
+      public function create_team($teamCaptainId, $name, $clubId) {  	
       
-      $sql = $this->db->prepare("INSERT INTO ietd_teams(name, affiliated, club_id, captain_id) VALUES (%s, %d, %d, %d)", $name, $isAffiliated, $clubId, $teamCaptainId);
+      $sql = $this->db->prepare("INSERT INTO ietd_teams(name, club_id, captain_id) VALUES (%s, %d, %d)", $name, $clubId, $teamCaptainId);
 							
 			$result = $this->db->query($sql, OBJECT);
 			
@@ -127,15 +124,11 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
       
       switch ($field) {
         case "name":
-             $sql = $this->db->prepare("UPDATE ietd_teams SET name = '%s' WHERE id = %d", $value, $id);             
-            break;
-        case "clubId":
-            if ($value == self::Unattached) {
-              $sql = $this->db->prepare("UPDATE ietd_teams SET club_id = %d, affiliated = 0 WHERE id = %d", $value, $id);
-            } else {
-              $sql = $this->db->prepare("UPDATE ietd_teams SET club_id = %d, affiliated = 1 WHERE id = %d", $value, $id);
-            }            
-            break;
+          $sql = $this->db->prepare("UPDATE ietd_teams SET name = '%s' WHERE id = %d", $value, $id);             
+          break;
+        case "clubId":            
+          $sql = $this->db->prepare("UPDATE ietd_teams SET club_id = %d WHERE id = %d", $value, $id);   
+          break;
     }
     
     $result = $this->db->query($sql, OBJECT);
@@ -205,6 +198,5 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 						'Unknown error in deleting team from the database', array( 'status' => 500 ) );			
       }
 	}
-
-	}
+}
 ?>
