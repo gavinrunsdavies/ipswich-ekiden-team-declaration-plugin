@@ -94,10 +94,19 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 		register_rest_route( $namespace, '/teams', array(
 			'methods'             => \WP_REST_Server::CREATABLE,
 			'permission_callback' => array( $this, 'permission_check' ),
-			'callback'            => array( $this, 'create_team' )				
+			'callback'            => array( $this, 'create_team' ),
+			'args'                => array(
+				'name'           => array(
+					'required'          => true
+					),
+				'clubId'           => array(
+					'required'          => true,
+          'validate_callback' => array( $this, 'is_valid_id' )
+					)
+				)      
 		) );    
     
-    // Patch - updates
+    // PUT - updates
 		register_rest_route( $namespace, '/teams/(?P<id>[\d]+)', array(
 			'methods'             => \WP_REST_Server::EDITABLE,
 			'permission_callback' => array( $this, 'permission_check' ),
@@ -107,12 +116,12 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					'required'          => true,						
 					'validate_callback' => array( $this, 'is_valid_id' )
 					),
-				'field'           => array(
-					'required'          => true,
-					'validate_callback' => array( $this, 'is_valid_team_update_field' )
-					),
-				'value'           => array(
+				'name'           => array(
 					'required'          => true
+					),
+				'clubId'           => array(
+					'required'          => true,
+          'validate_callback' => array( $this, 'is_valid_id' )
 					)
 				)
     ));
@@ -246,8 +255,14 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     
     public function get_teams(\WP_REST_Request $request) {
       $response = $this->data_access->get_teams();      
+      
+      $teams = $this->add_runners_to_teams($response);
+      
+      foreach ($teams as &$team) {
+        $this->update_team_category($team);
+      }
 		
-      return rest_ensure_response( $response );
+      return rest_ensure_response( $teams );
     }
 		
     public function get_team(\WP_REST_Request $request) {
@@ -266,9 +281,14 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403 ) );
       }
       
-      $response = $this->data_access->get_myteams($current_user->ID);           
+      $response = $this->data_access->get_myteams($current_user->ID);         
+      $teams = $this->add_runners_to_teams($response);
+      
+      foreach ($teams as &$team) {
+        $this->update_team_category($team);
+      }
 		
-      return rest_ensure_response( $response );
+      return rest_ensure_response( $teams );      		
     }    
     
     public function create_team(\WP_REST_Request $request) {
@@ -279,7 +299,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403, 'User' => $current_user->ID ) );
       }     
       
-      $response = $this->data_access->create_team($current_user->ID, $request['name'], $clubId);      
+      $response = $this->data_access->create_team($current_user->ID, $request['name'], $request['clubId']);      
 		
       return rest_ensure_response( $response );
     }     
@@ -290,7 +310,15 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					sprintf( 'You do not have enough privileges to use this update this team.' ), array( 'status' => 403 ) );
       }
         
-      $response = $this->data_access->update_team($request['id'], $request['field'], $request['value']);
+      $response = $this->data_access->update_team($request['id'], $request['name'], $request['clubId']);           
+      
+      foreach ($request['runners'] as $runner) {
+        if ( !empty($runner['name']) || !empty($runner['ageCategory']) || $runner['gender'] > 0) {          
+          $response = $this->data_access->update_team_runner($request['id'], $runner['leg'], $runner['name'], $runner['gender'], $runner['ageCategory']);
+        }
+      }
+      
+      $response = $this->data_access->get_team($request['id']);
 		
       $this->update_team_category($response);
      
@@ -468,5 +496,21 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
        $teamCategory = $this->get_team_category($team);
       $team->complete = ($teamCategory != null);
       $team->category = $teamCategory;      
+    }
+    
+    private function add_runners_to_teams($results) {
+      foreach ($results->teams as &$team) {
+        $team->runners = array();
+        
+        foreach ($results->runners as $k => $runner) {
+          if ($runner->teamId == $team->id) {
+            unset($runner->teamId);
+            array_push($team->runners, $runner);
+            unset($k);
+          }
+        }
+      }
+      
+      return $results->teams;
     }
 }

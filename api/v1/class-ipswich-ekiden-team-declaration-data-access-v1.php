@@ -50,39 +50,57 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
               INNER JOIN ietd_clubs c on c.id = t.club_id
               ORDER BY c.name, t.name";
 							
-			$results = $this->db->get_results($sql, OBJECT);
+			$teams = $this->db->get_results($sql, OBJECT);
       
       if ($this->db->num_rows == 0)
 				return array();
-			
-			if (!$results)	{			
-				return new \WP_Error( 'get_teams',
-						'Unknown error in reading results from the database', array( 'status' => 500 ) );			
-			}
+      
+      $sql = "SELECT tr.team_id as teamId, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
+            FROM ietd_team_runners tr
+            INNER JOIN ietd_runners r ON r.id = tr.runner_id
+            ORDER BY teamId, leg";
+            
+      $runners = $this->db->get_results($sql, OBJECT);
+      
+      if ($this->db->num_rows == 0)
+				$runners = array();
+
+      $results = new \stdclass;
+      $results->teams = $teams;
+      $results->runners = $runners;
 
 			return $results;
 	}
 	
 	    public function get_myteams($captainId) {  	
-      
-      $sql = $this->db->prepare("SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName
+        $sql = $this->db->prepare("SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName
               FROM ietd_teams t
               INNER JOIN ietd_clubs c on c.id = t.club_id
-			  WHERE t.captain_id = %d
-              ORDER BY t.name
-        ", $captainId);
+              WHERE t.captain_id = %d
+              ORDER BY t.name", $captainId);
 							
-			$results = $this->db->get_results($sql, OBJECT);
+			$teams = $this->db->get_results($sql, OBJECT);
       
       if ($this->db->num_rows == 0)
 				return array();
-			
-			if (!$results)	{			
-				return new \WP_Error( 'get_teams',
-						'Unknown error in reading results from the database', array( 'status' => 500 ) );			
-			}
+      
+      $sql = $this->db->prepare("SELECT tr.team_id as teamId, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
+            FROM ietd_team_runners tr
+            INNER JOIN ietd_runners r ON r.id = tr.runner_id
+            INNER JOIN ietd_teams t ON t.id = tr.team_id
+            WHERE t.captain_id = %d 
+            ORDER BY teamId, leg", $captainId);
+            
+      $runners = $this->db->get_results($sql, OBJECT);
+      
+      if ($this->db->num_rows == 0)
+				$runners = array();
 
-			return $results;
+      $results = new \stdclass;
+      $results->teams = $teams;
+      $results->runners = $runners;
+
+			return $results;    
 	}
   
       public function get_team($teamId) {  	
@@ -97,7 +115,8 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
       $sql = $this->db->prepare("SELECT r.id as id, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
             FROM ietd_team_runners tr
             INNER JOIN ietd_runners r ON r.id = tr.runner_id
-            WHERE tr.team_id = %d", $teamId);
+            WHERE tr.team_id = %d
+            ORDER BY leg ASC", $teamId);
 							
 			$runners = $this->db->get_results($sql, OBJECT);          
       
@@ -120,20 +139,12 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 						'Unknown error in reading results from the database', array( 'status' => 500, 'sql' => $sql ) );			
 	}
   
-   public function update_team($id, $field, $value) {  	     
-      
-      switch ($field) {
-        case "name":
-          $sql = $this->db->prepare("UPDATE ietd_teams SET name = '%s' WHERE id = %d", $value, $id);             
-          break;
-        case "clubId":            
-          $sql = $this->db->prepare("UPDATE ietd_teams SET club_id = %d WHERE id = %d", $value, $id);   
-          break;
-    }
+   public function update_team($id, $name, $clubId) {  	     
+    $sql = $this->db->prepare("UPDATE ietd_teams SET name = '%s', club_id = %d WHERE id = %d", $name, $clubId, $id);    
     
     $result = $this->db->query($sql, OBJECT);
         
-		return $this->get_team($id);
+		return $result;
 	}
   
         public function add_team_runner($teamId, $leg, $name, $genderId, $ageCategory) {  	
@@ -157,34 +168,29 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 			return;			
 	}
   
-     public function update_team_runner($teamId, $leg, $field, $value) {  	
-       switch ($field) {
-        case "name": 
-          $sql = $this->db->prepare("UPDATE ietd_team_runners tr, ietd_runners r
-                                     SET r.name = '%s' 
-                                     WHERE tr.runner_id = r.id AND tr.leg = %d AND tr.team_id = %d", $value, $leg, $teamId);
-          break;
-        case "ageCategory": 
-          $sql = $this->db->prepare("UPDATE ietd_team_runners tr, ietd_runners r
-                                     SET r.age_category = '%s' 
-                                     WHERE tr.runner_id = r.id AND tr.leg = %d AND tr.team_id = %d", $value, $leg, $teamId);
-          break;
-        case "gender": 
-          $sql = $this->db->prepare("UPDATE ietd_team_runners tr, ietd_runners r
-                                     SET r.gender = %d 
-                                     WHERE tr.runner_id = r.id AND tr.leg = %d AND tr.team_id = %d", $value, $leg, $teamId);
-          break;
-        default:
-          return new \WP_Error( 'update_team_runner',
-						'Invalid request', array( 'status' => 400 ) );         
-       }
+     public function update_team_runner($teamId, $leg, $name, $gender, $ageCategory) {  	
+     
+      $sql = $this->db->prepare("SELECT r.id as id
+      FROM ietd_team_runners tr
+      INNER JOIN ietd_runners r ON r.id = tr.runner_id
+      WHERE tr.team_id = %d AND tr.leg = %d", $teamId, $leg);
+      
+      $matched = $this->db->get_row($sql);
+      
+      if ($matched === null) {
+        $this->add_team_runner($teamId, $leg, $name, $gender, $ageCategory);
+      } else {
+        $sql = $this->db->prepare("UPDATE ietd_runners r
+                                   SET r.name = '%s', r.age_category = '%s', r.gender = %d  
+                                   WHERE r.id = r.id", $name, $ageCategory, $gender, $matched->id);
+      }
 				
 			$result = $this->db->query($sql, OBJECT);
          
-         if (!$result) {
-         return new \WP_Error( 'update_team_runner',
-						'Unknown error in updating team in to the database', array( 'status' => 500 ) );
-         }
+     if (!$result) {
+      return new \WP_Error( 'update_team_runner',
+        'Unknown error in updating team in to the database', array( 'status' => 500 ) );
+     }
 	}
 	
     public function delete_team($id) {  	
