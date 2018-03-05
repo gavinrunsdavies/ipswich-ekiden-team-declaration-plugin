@@ -10,8 +10,8 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 	private $user;
   
   const Unattached = 989;
-  const MaleId = 1;
-  const FemaleId = 2;
+  const Male = "Male";
+  const Female = "Female";
 	
 	public function __construct() {
 		$this->data_access = new Ipswich_Ekiden_Team_Declaration_Data_Access();
@@ -313,7 +313,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       $response = $this->data_access->update_team($request['id'], $request['name'], $request['clubId']);           
       
       foreach ($request['runners'] as $runner) {
-        if ( !empty($runner['name']) || !empty($runner['ageCategory']) || $runner['gender'] > 0) {          
+        if ( !empty($runner['name']) || !empty($runner['ageCategory']) || !empty($runner['gender'])) {          
           $response = $this->data_access->update_team_runner($request['id'], $runner['leg'], $runner['name'], $runner['gender'], $runner['ageCategory']);
         }
       }
@@ -342,7 +342,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					sprintf( 'You do not have enough privileges to use this update this team.' ), array( 'status' => 403 ) );
       }
       
-      $response = $this->data_access->add_team_runner($request['id'], $request['leg'], $request['name'], $request['genderId'], $request['ageCategory']);
+      $response = $this->data_access->add_team_runner($request['id'], $request['leg'], $request['name'], $request['gender'], $request['ageCategory']);
             	
       return rest_ensure_response( $response );
     } 
@@ -444,7 +444,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       for ($i = 0; $i < count($team->runners); $i++) {        
         if ( empty($team->runners[$i]->name) || 
               empty($team->runners[$i]->ageCategory) ||
-              $team->runners[$i]->gender == 0) {
+              empty($team->runners[$i]->gender)) {
             return null;
         }
         
@@ -453,13 +453,13 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
           continue;
         }
         
-        if ($team->runners[$i]->gender == self::MaleId) {
+        if ($team->runners[$i]->gender == self::Male) {
           $allFemale = false;
           
           if ($team->runners[$i]->ageCategory < $youngestMale) {
             $team->runners[$i]->ageCategory = $youngestMale;
           }
-        } elseif ($team->runners[$i]->gender == self::FemaleId) {
+        } elseif ($team->runners[$i]->gender == self::Female) {
           $allMale = false;
           $numberOfFemale++;
           

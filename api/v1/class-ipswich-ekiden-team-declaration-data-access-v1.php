@@ -147,9 +147,9 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 		return $result;
 	}
   
-        public function add_team_runner($teamId, $leg, $name, $genderId, $ageCategory) {  	
+        public function add_team_runner($teamId, $leg, $name, $gender, $ageCategory) {  	
       
-      $sql = $this->db->prepare("INSERT INTO ietd_runners(name, age_category, gender) VALUES (%s, %s, %d)", $name, $ageCategory, $genderId);
+      $sql = $this->db->prepare("INSERT INTO ietd_runners(name, age_category, gender) VALUES (%s, %s, %s)", $name, $ageCategory, $gender);
 							
 			$result = $this->db->query($sql, OBJECT);
 			
@@ -181,7 +181,7 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
         $this->add_team_runner($teamId, $leg, $name, $gender, $ageCategory);
       } else {
         $sql = $this->db->prepare("UPDATE ietd_runners r
-                                   SET r.name = '%s', r.age_category = '%s', r.gender = %d  
+                                   SET r.name = '%s', r.age_category = '%s', r.gender = '%s'  
                                    WHERE r.id = r.id", $name, $ageCategory, $gender, $matched->id);
       }
 				
