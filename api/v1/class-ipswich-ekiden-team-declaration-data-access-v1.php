@@ -175,23 +175,23 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
       INNER JOIN ietd_runners r ON r.id = tr.runner_id
       WHERE tr.team_id = %d AND tr.leg = %d", $teamId, $leg);
       
-      $matched = $this->db->get_row($sql);
+      $runnerId = $this->db->get_var($sql);
       
-      if ($matched === null) {
-        $this->add_team_runner($teamId, $leg, $name, $gender, $ageCategory);
-      } else {
+      if ($runnerId > 0) {                            
         $sql = $this->db->prepare("UPDATE ietd_runners r
                                    SET r.name = '%s', r.age_category = '%s', r.gender = '%s'  
-                                   WHERE r.id = r.id", $name, $ageCategory, $gender, $matched->id);
-      }
-				
-			$result = $this->db->query($sql, OBJECT);
-         
-     if (!$result) {
-      return new \WP_Error( 'update_team_runner',
-        'Unknown error in updating team in to the database', array( 'status' => 500 ) );
-     }
-	}
+                                   WHERE r.id = %d", $name, $ageCategory, $gender, $runnerId);
+
+        $result = $this->db->query($sql, OBJECT);
+        
+        if (!$result) {
+            return new \WP_Error( 'update_team_runner',
+              'Unknown error in updating team in to the database', array( 'status' => 500 ) );
+        }     
+      } else {
+        return $this->add_team_runner($teamId, $leg, $name, $gender, $ageCategory);
+      }            
+    }
 	
     public function delete_team($id) {  	
             
