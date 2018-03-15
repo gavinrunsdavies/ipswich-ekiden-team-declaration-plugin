@@ -62,6 +62,11 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 
   private function register_routes_manager($namespace) {		
 
+     register_rest_route( $namespace, '/statistics/', array(
+			'methods'             => \WP_REST_Server::READABLE,				
+			'callback'            => array( $this, 'get_statistics' )
+		) );
+  
     register_rest_route( $namespace, '/clubs/', array(
 			'methods'             => \WP_REST_Server::READABLE,				
 			'callback'            => array( $this, 'get_clubs' )
@@ -245,6 +250,25 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       $response->password = $request['password'];
 
       return rest_ensure_response( $response );      
+    }
+    
+     public function get_statistics(\WP_REST_Request $request) {
+      $clubTeamsCount = $this->data_access->get_club_team_count();
+      
+      $runnerCategoryCount = $this->data_access->get_runner_category_count();
+      
+      $teams = $this->get_teams($request);
+      
+      $response = new \stdClass;
+			$response->clubTeamsCount = $clubTeamsCount;
+		  $response->runnerCategoryCount = $runnerCategoryCount;
+      $response->teamCategoryCount = '';
+      $response->totalTeamsCount = count($teams);
+      $response->completeTeamsCount = '';
+      $response->maleRunnerCount = '';
+      $response->femaleRunnerCount = '';
+		
+      return rest_ensure_response( $response );
     }
        
     public function get_clubs(\WP_REST_Request $request) {
@@ -447,10 +471,9 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
               empty($team->runners[$i]->gender)) {
             return null;
         }
-        
+       
         if ($team->clubId == self::Unattached) {
-          $teamCategory = 'Unaffiliated';
-          continue;
+          return 'Unaffiliated / Social';          
         }
         
         if ($team->runners[$i]->gender == self::Male) {
@@ -481,9 +504,9 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
         $teamCategory = "LadiesVet";
       } elseif ($allFemale && $youngestFemale == "V45") {
         $teamCategory = "LadiesSuperVet";
-      } elseif (($youngestMale == "V60" && $allMale) || ($youngestFemale == "V60" && $allFemale) || ($$youngestMale >= "V60" && $youngestFemale >= "V60")) {
+      } elseif (($youngestMale == "V60" && $allMale) || ($youngestFemale == "V60" && $allFemale) || ($youngestMale == "V60" && $youngestFemale == "V60")) {
         $teamCategory = "Over60";
-      } elseif (($youngestMale == "V70" && $allMale) || ($youngestFemale == "V70" && $allFemale) || ($$youngestMale >= "V70" && $youngestFemale >= "V70")) {
+      } elseif (($youngestMale == "V70" && $allMale) || ($youngestFemale == "V70" && $allFemale) || ($youngestMale >= "V70" && $youngestFemale >= "V70")) {
         $teamCategory = "Over70";
       } elseif ($numberOfFemale >= 2 && $allFemale == false) {
         $teamCategory = "Mixed";
