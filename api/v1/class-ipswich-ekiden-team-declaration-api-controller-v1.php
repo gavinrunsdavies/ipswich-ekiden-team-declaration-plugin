@@ -480,14 +480,14 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
           $allFemale = false;
           
           if ($team->runners[$i]->ageCategory < $youngestMale) {
-            $team->runners[$i]->ageCategory = $youngestMale;
+            $youngestMale = $team->runners[$i]->ageCategory;
           }
         } elseif ($team->runners[$i]->gender == self::Female) {
           $allMale = false;
           $numberOfFemale++;
           
           if ($team->runners[$i]->ageCategory < $youngestFemale) {
-            $team->runners[$i]->ageCategory = $youngestFemale;
+            $youngestFemale = $team->runners[$i]->ageCategory;
           }
         }        
       }
