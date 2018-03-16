@@ -257,16 +257,44 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       
       $runnerCategoryCount = $this->data_access->get_runner_category_count();
       
-      $teams = $this->get_teams($request);
+      $teamsResponse = $this->data_access->get_teams();      
       
+      $teams = $this->add_runners_to_teams($teamsResponse);
+      
+      foreach ($teams as &$team) {
+        $this->update_team_category($team);
+      }
+                  
       $response = new \stdClass;
 			$response->clubTeamsCount = $clubTeamsCount;
 		  $response->runnerCategoryCount = $runnerCategoryCount;
-      $response->teamCategoryCount = '';
+      $response->teamCategoryCount = array();
       $response->totalTeamsCount = count($teams);
-      $response->completeTeamsCount = '';
-      $response->maleRunnerCount = '';
-      $response->femaleRunnerCount = '';
+      $response->completeTeamsCount = 0;
+      $response->maleRunnerCount = 0;
+      $response->femaleRunnerCount = 0;
+      
+      for ($i = 0; $i < count($teams); $i++) {                
+        if ($teams[$i]->complete) {
+          $response->completeTeamsCount++;         
+          
+          if (array_key_exists($teams[$i]->category, $response->teamCategoryCount)) {
+            $response->teamCategoryCount[$teams[$i]->category] += 1;
+          } else {
+            $response->teamCategoryCount[$teams[$i]->category] = 1;
+          }
+        }
+        
+        for ($j = 0; $j < count($teams[$i]->runners); $j++) {                        
+          if ($teams[$i]->runners[$j]->gender == self::Male) {
+            $response->maleRunnerCount++;
+          } else if ($teams[$i]->runners[$j]->gender == self::Female) {
+            $response->femaleRunnerCount++;
+          }
+        }                
+      }
+      
+      $response->teamCategoryCount['Uncategorized'] = count($teams) - $response->completeTeamsCount;
 		
       return rest_ensure_response( $response );
     }

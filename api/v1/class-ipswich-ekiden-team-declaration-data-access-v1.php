@@ -207,26 +207,30 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
       
     public function get_club_team_count() {  	
             
-			$sql = "SELECT c.name, COUNT(t.Id) FROM ietd_teams t INNER JOIN ietd_clubs c on c.id = t.club_id GROUP by c.id ORDER BY c.name";
+			$sql = "SELECT c.name as name, COUNT(t.Id) as value FROM ietd_teams t INNER JOIN ietd_clubs c on c.id = t.club_id GROUP by c.id ORDER BY c.name";
 
-			$result = $this->db->query($sql);
+			$result = $this->db->get_results($sql, OBJECT);
       	
       if (!$result) {	
 			return new \WP_Error( 'get_club_team_count',
 						'Unknown error in getting club team statistics from the database', array( 'status' => 500 ) );			
       }
+		
+		return $result;
 	}
   
   public function get_runner_category_count() {  	
             
-			$sql = "SELECT age_category, COUNT(id) FROM ietd_runners GROUP by age_category ORDER BY age_category";
+			$sql = "SELECT age_category as name, COUNT(id) as value FROM ietd_runners GROUP by age_category ORDER BY age_category";
 
-			$result = $this->db->query($sql);
+			$result = $this->db->get_results($sql, OBJECT);
       	
       if (!$result) {	
 			return new \WP_Error( 'get_runner_category_count',
 						'Unknown error in getting club runner statistics from the database', array( 'status' => 500 ) );			
       }
+	  
+	  return $result;
 	}
 }
 ?>
