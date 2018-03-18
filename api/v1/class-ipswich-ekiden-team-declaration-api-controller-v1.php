@@ -306,8 +306,19 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     }
     
     public function get_teams(\WP_REST_Request $request) {
-      $response = $this->data_access->get_teams();      
       
+      $parameters = $request->get_query_params();
+      
+      if (isset($parameters['race'])) {
+        if ($parameters['race'] == "seniors") {
+        $response = $this->data_access->get_teams(0);    
+      } else {      
+        $response = $this->data_access->get_teams(1);      
+      }
+      } else {
+        $response = $this->data_access->get_teams(null);  
+      }
+            
       $teams = $this->add_runners_to_teams($response);
       
       foreach ($teams as &$team) {
@@ -351,7 +362,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403, 'User' => $current_user->ID ) );
       }     
       
-      $response = $this->data_access->create_team($current_user->ID, $request['name'], $request['clubId']);      
+      $response = $this->data_access->create_team($current_user->ID, $request['name'], $request['clubId'], $request['isJuniorTeam']);      
 		
       return rest_ensure_response( $response );
     }     
@@ -362,7 +373,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					sprintf( 'You do not have enough privileges to use this update this team.' ), array( 'status' => 403 ) );
       }
         
-      $response = $this->data_access->update_team($request['id'], $request['name'], $request['clubId']);           
+      $response = $this->data_access->update_team($request['id'], $request['name'], $request['clubId'], $request['isJuniorTeam']);           
       
       foreach ($request['runners'] as $runner) {
         if ( !empty($runner['name']) || !empty($runner['ageCategory']) || !empty($runner['gender'])) {          
@@ -538,6 +549,9 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
         $teamCategory = "Over70";
       } elseif ($numberOfFemale >= 2 && $allFemale == false) {
         $teamCategory = "Mixed";
+      } else {
+        // Default
+        $teamCategory = "MensOpen";
       }
       
       return $teamCategory;

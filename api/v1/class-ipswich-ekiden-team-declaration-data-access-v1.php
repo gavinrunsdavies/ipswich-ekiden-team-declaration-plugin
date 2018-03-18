@@ -43,17 +43,25 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 			return $results;
 	}
   
-    public function get_teams() {  	
+    public function get_teams($isJuniorTeam) {  	
       
-      $sql = "SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName
+      if ($isJuniorTeam == null) {
+        $sql = "SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.is_junior_team as isJuniorTeam, t.number as number
               FROM ietd_teams t
               INNER JOIN ietd_clubs c on c.id = t.club_id
               ORDER BY c.name, t.name";
+      } else {
+        $sql = $this->db->prepare("SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.is_junior_team as isJuniorTeam, t.number as number
+              FROM ietd_teams t              
+              INNER JOIN ietd_clubs c on c.id = t.club_id
+              WHERE t.is_junior_team = %d
+              ORDER BY c.name, t.name", $isJuniorTeam);
+      }
 							
 			$teams = $this->db->get_results($sql, OBJECT);
       
       if ($this->db->num_rows == 0)
-				return array();
+				$teams = array();
       
       $sql = "SELECT tr.team_id as teamId, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
             FROM ietd_team_runners tr
@@ -73,7 +81,7 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 	}
 	
 	    public function get_myteams($captainId) {  	
-        $sql = $this->db->prepare("SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName
+        $sql = $this->db->prepare("SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.is_junior_team as isJuniorTeam, t.number as number
               FROM ietd_teams t
               INNER JOIN ietd_clubs c on c.id = t.club_id
               WHERE t.captain_id = %d
@@ -104,7 +112,7 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 	}
   
       public function get_team($teamId) {  	
-       $sql = $this->db->prepare("SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.captain_id as captainId
+       $sql = $this->db->prepare("SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.captain_id as captainId, t.is_junior_team as isJuniorTeam, t.number as number
               FROM ietd_teams t
               INNER JOIN ietd_clubs c on c.id = t.club_id
 			  WHERE t.id = %d
@@ -125,9 +133,9 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 			return $team;
 	}
   
-      public function create_team($teamCaptainId, $name, $clubId) {  	
+      public function create_team($teamCaptainId, $name, $clubId, $isJuniorTeam = 0) {  	
       
-      $sql = $this->db->prepare("INSERT INTO ietd_teams(name, club_id, captain_id) VALUES (%s, %d, %d)", $name, $clubId, $teamCaptainId);
+      $sql = $this->db->prepare("INSERT INTO ietd_teams(name, club_id, captain_id, is_junior_team) VALUES (%s, %d, %d, %d)", $name, $clubId, $teamCaptainId, $isJuniorTeam);
 							
 			$result = $this->db->query($sql, OBJECT);
 			
@@ -139,8 +147,8 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 						'Unknown error in reading results from the database', array( 'status' => 500, 'sql' => $sql ) );			
 	}
   
-   public function update_team($id, $name, $clubId) {  	     
-    $sql = $this->db->prepare("UPDATE ietd_teams SET name = '%s', club_id = %d WHERE id = %d", $name, $clubId, $id);    
+   public function update_team($id, $name, $clubId, $isJuniorTeam = 0) {  	     
+    $sql = $this->db->prepare("UPDATE ietd_teams SET name = '%s', club_id = %d, is_junior_team = %d WHERE id = %d", $name, $clubId, $isJuniorTeam, $id);    
     
     $result = $this->db->query($sql, OBJECT);
         
