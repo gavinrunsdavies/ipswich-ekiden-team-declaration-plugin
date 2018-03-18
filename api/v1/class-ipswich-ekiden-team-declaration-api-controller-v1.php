@@ -257,7 +257,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       
       $runnerCategoryCount = $this->data_access->get_runner_category_count();
       
-      $teamsResponse = $this->data_access->get_teams();      
+      $teamsResponse = $this->data_access->get_teams(null);      
       
       $teams = $this->add_runners_to_teams($teamsResponse);
       
