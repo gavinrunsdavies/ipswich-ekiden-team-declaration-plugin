@@ -80,12 +80,20 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 			return $results;
 	}
 	
-	    public function get_myteams($captainId) {  	
-        $sql = $this->db->prepare("SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.is_junior_team as isJuniorTeam, t.number as number
+	    public function get_myteams($captainId, $allTeams = false) {
+
+        if ($allTeams === true) {
+          $sql = "SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.is_junior_team as isJuniorTeam, t.number as number
+              FROM ietd_teams t
+              INNER JOIN ietd_clubs c on c.id = t.club_id
+              ORDER BY t.name";
+        } else {
+          $sql = $this->db->prepare("SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.is_junior_team as isJuniorTeam, t.number as number
               FROM ietd_teams t
               INNER JOIN ietd_clubs c on c.id = t.club_id
               WHERE t.captain_id = %d
-              ORDER BY t.name", $captainId);
+              ORDER BY t.name", $captainId);  
+        }
 							
 			$teams = $this->db->get_results($sql, OBJECT);
       

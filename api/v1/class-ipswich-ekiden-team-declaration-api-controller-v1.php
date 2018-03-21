@@ -271,18 +271,28 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       $response->teamCategoryCount = array();
       $response->totalTeamsCount = count($teams);
       $response->completeTeamsCount = 0;
+      $response->seniorTeamsCount = 0;
+      $response->juniorTeamsCount = 0;
       $response->maleRunnerCount = 0;
-      $response->femaleRunnerCount = 0;
+      $response->femaleRunnerCount = 0;      
+      
+      $teamCategoryCount = array();
       
       for ($i = 0; $i < count($teams); $i++) {                
         if ($teams[$i]->complete) {
           $response->completeTeamsCount++;         
           
-          if (array_key_exists($teams[$i]->category, $response->teamCategoryCount)) {
-            $response->teamCategoryCount[$teams[$i]->category] += 1;
+          if (array_key_exists($teams[$i]->category, $teamCategoryCount)) {
+            $teamCategoryCount[$teams[$i]->category] += 1;
           } else {
-            $response->teamCategoryCount[$teams[$i]->category] = 1;
+            $teamCategoryCount[$teams[$i]->category] = 1;
           }
+        }
+        
+        if ($teams[$i]->isJuniorTeam) {
+          $response->juniorTeamsCount++;
+        } else {
+          $response->seniorTeamsCount++;
         }
         
         for ($j = 0; $j < count($teams[$i]->runners); $j++) {                        
@@ -294,8 +304,16 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
         }                
       }
       
-      $response->teamCategoryCount['Uncategorized'] = count($teams) - $response->completeTeamsCount;
-		
+      $teamCategoryCount['Uncategorized'] = count($teams) - $response->completeTeamsCount;
+      
+      foreach($teamCategoryCount as $category => $count) {
+        $statisticItem = new \stdClass;
+        $statisticItem->name = $category;
+        $statisticItem->value = $count;
+        
+        $response->teamCategoryCount[] = $statisticItem;
+      }
+      		
       return rest_ensure_response( $response );
     }
        
@@ -344,7 +362,12 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403 ) );
       }
       
-      $response = $this->data_access->get_myteams($current_user->ID);         
+      $getAllTeams = false;
+      if( current_user_can('editor') || current_user_can('administrator') ) {
+        $getAllTeams = true;
+      }
+      
+      $response = $this->data_access->get_myteams($current_user->ID, $getAllTeams);         
       $teams = $this->add_runners_to_teams($response);
       
       foreach ($teams as &$team) {
@@ -492,7 +515,57 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       return true;      
     }
     
-    private function get_team_category($team) {
+    private function get_junior_team_category($team) {
+      if (count($team->runners) != 4) {
+        return null; 
+      }
+      
+      $teamCategory;
+      $youngestMale = "U11";
+      $youngestFemale = "U11";
+      $allMale = true;
+      $allFemale = true;
+      
+      for ($i = 0; $i < count($team->runners); $i++) {        
+        if ( empty($team->runners[$i]->name) || 
+              empty($team->runners[$i]->ageCategory) ||
+              empty($team->runners[$i]->gender)) {
+            return null;
+        }
+        
+        if ($team->runners[$i]->gender == self::Male) {
+          $allFemale = false;
+          
+          if ($team->runners[$i]->ageCategory > $youngestMale) {
+            $youngestMale = $team->runners[$i]->ageCategory;
+          }
+        } elseif ($team->runners[$i]->gender == self::Female) {
+          $allMale = false;
+          
+          if ($team->runners[$i]->ageCategory > $youngestFemale) {
+            $youngestFemale = $team->runners[$i]->ageCategory;
+          }
+        }
+      }
+      
+      if ($allMale && $youngestMale == "U11") {
+        $teamCategory = "U11B";
+      } elseif ($allMale) {
+        $teamCategory = "12B";
+      } elseif ($allFemale && $youngestFemale == "U11") {
+        $teamCategory = "U11G";
+      } elseif ($allFemale) {
+        $teamCategory = "12G";
+      } elseif ($youngestFemale == "U11" && $youngestMale == "U11") {
+        $teamCategory = "U11MX";
+      } else {
+        $teamCategory = "12MX"; // Default
+      }
+      
+      return $teamCategory;
+    }
+    
+    private function get_senior_team_category($team) {
       if (count($team->runners) != 6) {
         return null; 
       }
@@ -558,7 +631,11 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     }    
     
     private function update_team_category($team) {
-       $teamCategory = $this->get_team_category($team);
+      if ($team->isJuniorTeam) {
+        $teamCategory = $this->get_junior_team_category($team);
+      } else {
+        $teamCategory = $this->get_senior_team_category($team);
+      }
       $team->complete = ($teamCategory != null);
       $team->category = $teamCategory;      
     }
@@ -579,3 +656,4 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       return $results->teams;
     }
 }
+?>
