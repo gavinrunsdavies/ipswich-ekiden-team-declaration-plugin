@@ -257,7 +257,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       
       $runnerCategoryCount = $this->data_access->get_runner_category_count();
       
-      $teamsResponse = $this->data_access->get_teams();      
+      $teamsResponse = $this->data_access->get_teams(null);      
       
       $teams = $this->add_runners_to_teams($teamsResponse);
       
@@ -306,8 +306,19 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     }
     
     public function get_teams(\WP_REST_Request $request) {
-      $response = $this->data_access->get_teams();      
       
+      $parameters = $request->get_query_params();
+      
+      if (isset($parameters['race'])) {
+        if ($parameters['race'] == "seniors") {
+        $response = $this->data_access->get_teams(0);    
+      } else {      
+        $response = $this->data_access->get_teams(1);      
+      }
+      } else {
+        $response = $this->data_access->get_teams(null);  
+      }
+            
       $teams = $this->add_runners_to_teams($response);
       
       foreach ($teams as &$team) {
@@ -333,7 +344,12 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403 ) );
       }
       
-      $response = $this->data_access->get_myteams($current_user->ID);         
+      $getAllTeams = false;
+      if( current_user_can('editor') || current_user_can('administrator') ) {
+        $getAllTeams = true;
+      }
+      
+      $response = $this->data_access->get_myteams($current_user->ID, $getAllTeams);         
       $teams = $this->add_runners_to_teams($response);
       
       foreach ($teams as &$team) {
@@ -351,7 +367,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403, 'User' => $current_user->ID ) );
       }     
       
-      $response = $this->data_access->create_team($current_user->ID, $request['name'], $request['clubId']);      
+      $response = $this->data_access->create_team($current_user->ID, $request['name'], $request['clubId'], $request['isJuniorTeam']);      
 		
       return rest_ensure_response( $response );
     }     
@@ -362,7 +378,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					sprintf( 'You do not have enough privileges to use this update this team.' ), array( 'status' => 403 ) );
       }
         
-      $response = $this->data_access->update_team($request['id'], $request['name'], $request['clubId']);           
+      $response = $this->data_access->update_team($request['id'], $request['name'], $request['clubId'], $request['isJuniorTeam']);           
       
       foreach ($request['runners'] as $runner) {
         if ( !empty($runner['name']) || !empty($runner['ageCategory']) || !empty($runner['gender'])) {          
@@ -481,7 +497,57 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       return true;      
     }
     
-    private function get_team_category($team) {
+    private function get_junior_team_category($team) {
+      if (count($team->runners) != 4) {
+        return null; 
+      }
+      
+      $teamCategory;
+      $youngestMale = "U11";
+      $youngestFemale = "U11";
+      $allMale = true;
+      $allFemale = true;
+      
+      for ($i = 0; $i < count($team->runners); $i++) {        
+        if ( empty($team->runners[$i]->name) || 
+              empty($team->runners[$i]->ageCategory) ||
+              empty($team->runners[$i]->gender)) {
+            return null;
+        }
+        
+        if ($team->runners[$i]->gender == self::Male) {
+          $allFemale = false;
+          
+          if ($team->runners[$i]->ageCategory > $youngestMale) {
+            $youngestMale = $team->runners[$i]->ageCategory;
+          }
+        } elseif ($team->runners[$i]->gender == self::Female) {
+          $allMale = false;
+          
+          if ($team->runners[$i]->ageCategory > $youngestFemale) {
+            $youngestFemale = $team->runners[$i]->ageCategory;
+          }
+        }
+      }
+      
+      if ($allMale && $youngestMale == "U11") {
+        $teamCategory = "U11B";
+      } elseif ($allMale) {
+        $teamCategory = "12B";
+      } elseif ($allFemale && $youngestFemale == "U11") {
+        $teamCategory = "U11G";
+      } elseif ($allFemale) {
+        $teamCategory = "12G";
+      } elseif ($youngestFemale == "U11" && $youngestMale == "U11") {
+        $teamCategory = "U11MX";
+      } else {
+        $teamCategory = "12MX"; // Default
+      }
+      
+      return $teamCategory;
+    }
+    
+    private function get_senior_team_category($team) {
       if (count($team->runners) != 6) {
         return null; 
       }
@@ -538,13 +604,20 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
         $teamCategory = "Over70";
       } elseif ($numberOfFemale >= 2 && $allFemale == false) {
         $teamCategory = "Mixed";
+      } else {
+        // Default
+        $teamCategory = "MensOpen";
       }
       
       return $teamCategory;
     }    
     
     private function update_team_category($team) {
-       $teamCategory = $this->get_team_category($team);
+      if ($team->isJuniorTeam) {
+        $teamCategory = $this->get_junior_team_category($team);
+      } else {
+        $teamCategory = $this->get_senior_team_category($team);
+      }
       $team->complete = ($teamCategory != null);
       $team->category = $teamCategory;      
     }
@@ -565,3 +638,4 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       return $results->teams;
     }
 }
+?>
