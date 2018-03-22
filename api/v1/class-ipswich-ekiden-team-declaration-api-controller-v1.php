@@ -271,18 +271,28 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       $response->teamCategoryCount = array();
       $response->totalTeamsCount = count($teams);
       $response->completeTeamsCount = 0;
+      $response->seniorTeamsCount = 0;
+      $response->juniorTeamsCount = 0;
       $response->maleRunnerCount = 0;
-      $response->femaleRunnerCount = 0;
+      $response->femaleRunnerCount = 0;      
+      
+      $teamCategoryCount = array();
       
       for ($i = 0; $i < count($teams); $i++) {                
         if ($teams[$i]->complete) {
           $response->completeTeamsCount++;         
           
-          if (array_key_exists($teams[$i]->category, $response->teamCategoryCount)) {
-            $response->teamCategoryCount[$teams[$i]->category] += 1;
+          if (array_key_exists($teams[$i]->category, $teamCategoryCount)) {
+            $teamCategoryCount[$teams[$i]->category] += 1;
           } else {
-            $response->teamCategoryCount[$teams[$i]->category] = 1;
+            $teamCategoryCount[$teams[$i]->category] = 1;
           }
+        }
+        
+        if ($teams[$i]->isJuniorTeam) {
+          $response->juniorTeamsCount++;
+        } else {
+          $response->seniorTeamsCount++;
         }
         
         for ($j = 0; $j < count($teams[$i]->runners); $j++) {                        
@@ -294,8 +304,16 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
         }                
       }
       
-      $response->teamCategoryCount['Uncategorized'] = count($teams) - $response->completeTeamsCount;
-		
+      $teamCategoryCount['Uncategorized'] = count($teams) - $response->completeTeamsCount;
+      
+      foreach($teamCategoryCount as $category => $count) {
+        $statisticItem = new \stdClass;
+        $statisticItem->name = $category;
+        $statisticItem->value = $count;
+        
+        $response->teamCategoryCount[] = $statisticItem;
+      }
+      		
       return rest_ensure_response( $response );
     }
        
