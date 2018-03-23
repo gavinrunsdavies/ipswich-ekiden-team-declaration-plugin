@@ -22,7 +22,8 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 		$namespace = 'ipswich-ekiden-team-declaration-api/v1'; // base endpoint for our custom API
 				
 		$this->register_routes_authentication($namespace);
-		$this->register_routes_manager($namespace);						
+		$this->register_routes_teams($namespace);						
+    $this->register_routes_contact($namespace);		
 		
 		add_filter( 'rest_endpoints', array( $this, 'remove_wordpress_core_endpoints'), 10, 1 );		
 
@@ -59,8 +60,29 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 				)			
 		) ); 
 	}
+  
+  private function register_routes_contact($namespace) {
+    register_rest_route( $namespace, '/message', array(
+			'methods'             => \WP_REST_Server::CREATABLE,
+			'callback'            => array( $this, 'send_message' ),
+			'args'                => array(
+				'email'           => array(
+					'required'          => true
+					),
+        'message'           => array(
+					'required'          => true
+					),
+        'firstName'           => array(
+					'required'          => true
+					),
+        'lastName'           => array(
+					'required'          => true
+					)
+				)			
+		) ); 
+	}
 
-  private function register_routes_manager($namespace) {		
+  private function register_routes_teams($namespace) {		
 
      register_rest_route( $namespace, '/statistics/', array(
 			'methods'             => \WP_REST_Server::READABLE,				
@@ -210,6 +232,36 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 
 			return $endpoints;
 		}
+    
+    public function send_message(\WP_REST_Request $request) {
+      // To send HTML mail, the Content-type header must be set
+      $headers  = 'MIME-Version: 1.0' . "\r\n";
+      $headers .= 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
+
+      $fromName = $request['firstName'] . " " . $request['lastName'];
+      $fromAddress =  $fromName. " <" . $request['email']  .">";
+      
+      // Additional headers     
+      $headers .= 'From: ' . $fromAddress . "\r\n";
+    	$headers .= 'Cc: '. $request['email'] . "\r\n";
+      $headers .= 'Cc: admin@ipswichekiden.co.uk' . "\r\n";
+ 
+      $subject = "Ipswich Ekiden Team Declaration inquiry from ". $fromName;
+         
+      $footerHtml  = "<br><br><p><small>This email was automatically sent via a request made on the Ipswich Ekiden Team declaration Portal.</small></p>";
+      
+      $html = '<p>Contact inquiry from Ipswich Ekiden Team declaration Portal.</p>';
+      $html .= sprintf('<p>From %s; email: %s</p>', $fromName, $request['email']); 
+      $html .= '<p>Message:</p>';
+      $html .= '<blockquote>';
+      $html .= $request['message'];
+      $html .= '</blockquote>';
+      $html .= $footerHtml;
+
+      mail('info@ipswichekiden.co.uk', $subject, $html, $headers);
+      
+      return rest_ensure_response(null);
+    }
     
     public function custom_wp_new_user_notification_email( $wp_new_user_notification_email, $user, $blogname ) {
         $subject = sprintf("Ipswich Ekiden Team Declaration Registration - %s", $user->user_login);
