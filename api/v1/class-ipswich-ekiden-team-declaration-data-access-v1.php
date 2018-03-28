@@ -80,20 +80,13 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 			return $results;
 	}
 	
-	    public function get_myteams($captainId, $allTeams = false) {
+	    public function get_my_teams($captainId) {
 
-        if ($allTeams === true) {
-          $sql = "SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.is_junior_team as isJuniorTeam, t.number as number
-              FROM ietd_teams t
-              INNER JOIN ietd_clubs c on c.id = t.club_id
-              ORDER BY t.name";
-        } else {
           $sql = $this->db->prepare("SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.is_junior_team as isJuniorTeam, t.number as number
               FROM ietd_teams t
               INNER JOIN ietd_clubs c on c.id = t.club_id
               WHERE t.captain_id = %d
-              ORDER BY t.name", $captainId);  
-        }
+              ORDER BY t.name", $captainId);        
 							
 			$teams = $this->db->get_results($sql, OBJECT);
       
@@ -117,7 +110,49 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
       $results->runners = $runners;
 
 			return $results;    
-	}
+  }
+  
+  public function get_data() {
+    $sql = "SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.is_junior_team as isJuniorTeam, t.number as number, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg 
+    FROM ietd_team_runners tr 
+    INNER JOIN ietd_teams t ON t.id = tr.team_id 
+    INNER JOIN ietd_clubs c on c.id = t.club_id 
+    INNER JOIN ietd_runners r ON r.id = tr.runner_id 
+    ORDER BY t.number, t.name, tr.leg";
+
+    $data = $this->db->get_results($sql);
+
+    return $data;
+  }
+  public function get_all_teams() {
+  
+      $sql = "SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.is_junior_team as isJuniorTeam, t.number as number
+          FROM ietd_teams t
+          INNER JOIN ietd_clubs c on c.id = t.club_id
+          ORDER BY t.name";  
+          
+  $teams = $this->db->get_results($sql, OBJECT);
+  
+  if ($this->db->num_rows == 0)
+    return array();
+  
+  $sql = "SELECT tr.team_id as teamId, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
+        FROM ietd_team_runners tr
+        INNER JOIN ietd_runners r ON r.id = tr.runner_id
+        INNER JOIN ietd_teams t ON t.id = tr.team_id
+        ORDER BY teamId, leg";
+        
+  $runners = $this->db->get_results($sql, OBJECT);
+  
+  if ($this->db->num_rows == 0)
+    $runners = array();
+
+  $results = new \stdclass;
+  $results->teams = $teams;
+  $results->runners = $runners;
+
+  return $results;    
+}
   
       public function get_team($teamId) {  	
        $sql = $this->db->prepare("SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.captain_id as captainId, t.is_junior_team as isJuniorTeam, t.number as number

@@ -23,7 +23,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 				
 		$this->register_routes_authentication($namespace);
 		$this->register_routes_teams($namespace);						
-    $this->register_routes_contact($namespace);		
+    $this->register_routes_contact($namespace);		    	
 		
 		add_filter( 'rest_endpoints', array( $this, 'remove_wordpress_core_endpoints'), 10, 1 );		
 
@@ -80,7 +80,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					)
 				)			
 		) ); 
-	}
+  }
 
   private function register_routes_teams($namespace) {		
 
@@ -97,7 +97,24 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     register_rest_route( $namespace, '/teams', array(
 			'methods'             => \WP_REST_Server::READABLE,				
 			'callback'            => array( $this, 'get_teams' )
-		) );	
+    ) );	
+    
+    register_rest_route( $namespace, '/teams/download', array(
+      'methods'             => \WP_REST_Server::READABLE,				
+      'permission_callback' => array( $this, 'permission_editor_check' ),
+			'callback'            => array( $this, 'download_teams' )
+    ) );
+    
+    register_rest_route( $namespace, '/teams/send', array(
+      'methods'             => \WP_REST_Server::CREATABLE,				
+      'permission_callback' => array( $this, 'permission_editor_check' ),
+      'callback'            => array( $this, 'send_teams' ),
+      'args'                => array(
+				'email'             => array(
+					'required'        => true
+					)
+				)
+		) );
 
 		register_rest_route( $namespace, '/teams/(?P<id>[\d]+)', array(
 			'methods'             => \WP_REST_Server::READABLE,				
@@ -215,6 +232,17 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       }
       
       return true;
+    }
+    
+    public function permission_editor_check( \WP_REST_Request $request ) {
+      $current_user = wp_get_current_user();
+      
+      if (!(current_user_can('editor') || current_user_can('administrator'))) {
+        return new \WP_Error( 'rest_forbidden',
+					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403, 'User' => $current_user->ID ) );
+      }
+      
+      return true;
 		}
 	
 		/**
@@ -231,7 +259,56 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 			}
 
 			return $endpoints;
-		}
+    }
+    
+
+    public function send_teams(\WP_REST_Request $request) {
+      
+      $uid = md5(uniqid(time()));
+
+      $headers  = 'MIME-Version: 1.0' . "\r\n";
+      $headers .= "Content-Type: multipart/mixed; boundary=\"".$uid."\"\r\n\r\n";
+
+      $user = $this->getCurrentUser();
+      $fromAddress = $user->first_name . " " . $user->last_name . " <" . $user->user_email .">";
+                  
+      // Additional headers     
+      $headers .= 'From: ' . $fromAddress . "\r\n";    	
+      $headers .= 'Cc: admin@ipswichekiden.co.uk' . "\r\n";
+ 
+      $subject = "Ipswich Ekiden Team Declaration submitted teams ";
+         
+      $footerHtml  = "<br><br><p><small>This email was automatically sent via a request made on the Ipswich Ekiden Team declaration Portal.</small></p>";
+      
+      $html = '<p>Please find attached the declared and teams for the Ipswich Ekiden</p>';     
+      $html .= $footerHtml;
+
+      $filename = "IpswichEkidenLTeam".date("Ymd")."csv";
+      $data = $this->data_access->get_data();
+      $content = chunk_split(base64_encode($data));
+
+      // message & attachment
+      $message = "--".$uid."\r\n";
+      $message .= "Content-type:text/plain; charset=iso-8859-1\r\n";
+      $message .= "Content-Transfer-Encoding: 7bit\r\n\r\n";
+      $message .= $html."\r\n\r\n";
+      $message .= "--".$uid."\r\n";
+      $message .= "Content-Type: application/octet-stream; name=\"".$filename."\"\r\n";
+      $message .= "Content-Transfer-Encoding: base64\r\n";
+      $message .= "Content-Disposition: attachment; filename=\"".$filename."\"\r\n\r\n";
+      $message .= $content."\r\n\r\n";
+      $message .= "--".$uid."--";
+
+      mail($request['email'], $subject, $html, $headers);
+      
+      return rest_ensure_response(null);
+    }
+
+    public function download_teams(\WP_REST_Request $request) {
+      $teams = $this->data_access->get_data();  
+
+      return rest_ensure_response($teams);
+    }
     
     public function send_message(\WP_REST_Request $request) {
       // To send HTML mail, the Content-type header must be set
@@ -414,12 +491,12 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403 ) );
       }
       
-      $getAllTeams = false;
       if( current_user_can('editor') || current_user_can('administrator') ) {
-        $getAllTeams = true;
+        $response = $this->data_access->get_all_teams();  
+      } else {      
+        $response = $this->data_access->get_my_teams($current_user->ID);         
       }
-      
-      $response = $this->data_access->get_myteams($current_user->ID, $getAllTeams);         
+
       $teams = $this->add_runners_to_teams($response);
       
       foreach ($teams as &$team) {
