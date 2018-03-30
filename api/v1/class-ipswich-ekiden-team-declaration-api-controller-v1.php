@@ -265,17 +265,17 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     public function send_teams(\WP_REST_Request $request) {
       
       $uid = md5(uniqid(time()));
-
-      $headers  = 'MIME-Version: 1.0' . "\r\n";
-      $headers .= "Content-Type: multipart/mixed; boundary=\"".$uid."\"\r\n\r\n";
-
-      $user = $this->getCurrentUser();
+      $user = wp_get_current_user();
       $fromAddress = $user->first_name . " " . $user->last_name . " <" . $user->user_email .">";
                   
       // Additional headers     
-      $headers .= 'From: ' . $fromAddress . "\r\n";    	
-      $headers .= 'Cc: admin@ipswichekiden.co.uk' . "\r\n";
- 
+      $headers = array();
+      $headers[] = 'From: ' . $fromAddress;    	
+      $headers[]= 'Cc: admin@ipswichekiden.co.uk';
+      //$headers .= 'MIME-Version: 1.0' . "\r\n";
+      //$headers .= "Content-Type: multipart/mixed; boundary=\"".$uid."\"\r\n\r\n";
+      $headers[] = 'Content-Type: text/html; charset=UTF-8';
+          
       $subject = "Ipswich Ekiden Team Declaration submitted teams ";
          
       $footerHtml  = "<br><br><p><small>This email was automatically sent via a request made on the Ipswich Ekiden Team declaration Portal.</small></p>";
@@ -283,23 +283,23 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       $html = '<p>Please find attached the declared and teams for the Ipswich Ekiden</p>';     
       $html .= $footerHtml;
 
-      $filename = "IpswichEkidenLTeam".date("Ymd")."csv";
-      $data = $this->data_access->get_data();
-      $content = chunk_split(base64_encode($data));
+      $filename = "IpswichEkidenLTeam".date("Ymd").".csv";
+      $data = $this->data_access->get_data();      
 
-      // message & attachment
-      $message = "--".$uid."\r\n";
-      $message .= "Content-type:text/plain; charset=iso-8859-1\r\n";
-      $message .= "Content-Transfer-Encoding: 7bit\r\n\r\n";
-      $message .= $html."\r\n\r\n";
-      $message .= "--".$uid."\r\n";
-      $message .= "Content-Type: application/octet-stream; name=\"".$filename."\"\r\n";
-      $message .= "Content-Transfer-Encoding: base64\r\n";
-      $message .= "Content-Disposition: attachment; filename=\"".$filename."\"\r\n\r\n";
-      $message .= $content."\r\n\r\n";
-      $message .= "--".$uid."--";
+      $jsonDecoded = json_decode(json_encode($data), true);
 
-      mail($request['email'], $subject, $html, $headers);
+      //Open file pointer.
+      $fp = fopen($filename, 'w');
+
+      foreach($jsonDecoded as $row){          
+          fputcsv($fp, $row);
+      }
+
+      fclose($fp);
+
+      $attachment = array(realpath($filename));   
+
+      wp_mail($request['email'], $subject, $html, $headers, $attachment);      
       
       return rest_ensure_response(null);
     }

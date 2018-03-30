@@ -120,7 +120,7 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
     INNER JOIN ietd_runners r ON r.id = tr.runner_id 
     ORDER BY t.number, t.name, tr.leg";
 
-    $data = $this->db->get_results($sql);
+    $data = $this->db->get_results($sql, OBJECT);
 
     return $data;
   }
