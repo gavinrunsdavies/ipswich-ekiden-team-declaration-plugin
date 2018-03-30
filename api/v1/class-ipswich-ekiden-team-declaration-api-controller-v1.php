@@ -291,6 +291,10 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       //Open file pointer.
       $fp = fopen($filename, 'w');
 
+      // Add headers
+      fputcsv($fp, array('Ekiden Runners','','Individual Runner','','Leg','','','','Indivdiual Runner','Indivdiual Runner','Male or','','Ekiden Race number format'));
+      fputcsv($fp, array('Team Number','Colour','& Chip Number','Suffix','Number','Category','Team name','team name 12 characters (display purposes)','First name','Second name','Female','Age','Team Number'));          
+
       foreach($jsonDecoded as $row){          
           fputcsv($fp, $row);
       }
