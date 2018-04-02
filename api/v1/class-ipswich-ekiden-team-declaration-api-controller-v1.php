@@ -322,11 +322,13 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
         if ($teams[$i]->number > 0) {
           $this->update_team_category($teams[$i]); 
 
-          for ($j = 0; $j < count($teams[$i]->runners); $j++) {  
+          for ($j = 0; $j < count($teams[$i]->runners); $j++) {                          
             if ($teams[$i]->isJuniorTeam) {
-              $data->juniors[] = $this->build_junior_data($teams[$i], $teams[$i]->runners[$j], ($teams[$i]->number - 1) + $j + 1);
+              $chipNumber = (($teams[$i]->number - 1) * 4) + $j + 1;
+              $data->juniors[] = $this->build_junior_data($teams[$i], $teams[$i]->runners[$j], $chipNumber);
             } else {
-              $data->seniors[] = $this->build_senior_data($teams[$i], $teams[$i]->runners[$j], ($teams[$i]->number - 1) + $j + 1);
+              $chipNumber = (($teams[$i]->number - 1) * 6) + $j + 1;
+              $data->seniors[] = $this->build_senior_data($teams[$i], $teams[$i]->runners[$j], $chipNumber);
             }
           }
         }
