@@ -261,19 +261,15 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 			return $endpoints;
     }
     
-
     public function send_teams(\WP_REST_Request $request) {
       
-      $uid = md5(uniqid(time()));
       $user = wp_get_current_user();
       $fromAddress = $user->first_name . " " . $user->last_name . " <" . $user->user_email .">";
                   
       // Additional headers     
       $headers = array();
       $headers[] = 'From: ' . $fromAddress;    	
-      $headers[]= 'Cc: admin@ipswichekiden.co.uk';
-      //$headers .= 'MIME-Version: 1.0' . "\r\n";
-      //$headers .= "Content-Type: multipart/mixed; boundary=\"".$uid."\"\r\n\r\n";
+      $headers[] = 'Cc: admin@ipswichekiden.co.uk';      
       $headers[] = 'Content-Type: text/html; charset=UTF-8';
           
       $subject = "Ipswich Ekiden Team Declaration submitted teams ";
@@ -283,35 +279,168 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       $html = '<p>Please find attached the declared and teams for the Ipswich Ekiden</p>';     
       $html .= $footerHtml;
 
-      $filename = "IpswichEkidenLTeam".date("Ymd").".csv";
-      $data = $this->data_access->get_data();      
+      $data = $this->get_full_data();
 
-      $jsonDecoded = json_decode(json_encode($data), true);
+      $seniorFilename = "IpswichEkidenSeniorTeams".date("Ymd").".csv";
+      $juniorFilename = "IpswichEkidenJuniorTeams".date("Ymd").".csv";
+      
+      $attachments = array();   
+      $attachments[] = $this->write_data_to_file($seniorFilename, $data->seniors);
+      $attachments[] = $this->write_data_to_file($juniorFilename, $data->juniors);            
+      
+      wp_mail($request['email'], $subject, $html, $headers, $attachments);      
+      
+      $empty = new \stdClass;
+      return rest_ensure_response($empty);
+    }
 
+    private function write_data_to_file($filename, $data) {
       //Open file pointer.
       $fp = fopen($filename, 'w');
-
-      // Add headers
-      fputcsv($fp, array('Ekiden Runners','','Individual Runner','','Leg','','','','Indivdiual Runner','Indivdiual Runner','Male or','','Ekiden Race number format'));
-      fputcsv($fp, array('Team Number','Colour','& Chip Number','Suffix','Number','Category','Team name','team name 12 characters (display purposes)','First name','Second name','Female','Age','Team Number'));          
-
-      foreach($jsonDecoded as $row){          
+     
+      foreach($data as $row){          
           fputcsv($fp, $row);
       }
 
       fclose($fp);
 
-      $attachment = array(realpath($filename));   
+      return realpath($filename);
+    }
 
-      wp_mail($request['email'], $subject, $html, $headers, $attachment);      
+    private function get_full_data() {
+
+      $response = $this->data_access->get_all_teams();          
+      $teams = $this->add_runners_to_teams($response);
+
+      $data = new \stdClass;
+
+      // Add headers
+      $data->seniors = $this->build_senior_data_headers();
+      $data->juniors = $this->build_junior_data_headers();
+    
+      for ($i = 0; $i < count($teams); $i++) { 
+        if ($teams[$i]->number > 0) {
+          $this->update_team_category($teams[$i]); 
+
+          for ($j = 0; $j < count($teams[$i]->runners); $j++) {  
+            if ($teams[$i]->isJuniorTeam) {
+              $data->juniors[] = $this->build_junior_data($teams[$i], $teams[$i]->runners[$j], ($teams[$i]->number - 1) + $j + 1);
+            } else {
+              $data->seniors[] = $this->build_senior_data($teams[$i], $teams[$i]->runners[$j], ($teams[$i]->number - 1) + $j + 1);
+            }
+          }
+        }
+      }
+
+      return $data;
+    }
+
+    private function build_senior_data_headers() {
+      $headers1 = array();
+      $headers1['TeamNumber'] = 'Ekiden Runners';
+      $headers1['Colour'] = '';
+      $headers1['ChipNumber'] = 'Individual Runner';
+      $headers1['Suffix'] = 'Leg';
+      $headers1['Number'] = '';
+      $headers1['Category'] = '';
+      $headers1['TeamName'] = '';
+      $headers1['FirstName'] ='Indivdiual Runner';
+      $headers1['LastName'] = 'Indivdiual Runner';
+      $headers1['Gender'] = 'Male or';
+      $headers1['Age'] = '';
+      $headers1['TeamNumber2'] = 'Ekiden Race number format';
       
-      return rest_ensure_response(null);
+      $headers2 = array();
+      $headers2['TeamNumber'] = 'Team Number';
+      $headers2['Colour'] = 'Colour';
+      $headers2['ChipNumber'] = '& Chip Number';
+      $headers2['Suffix'] = 'Suffix';
+      $headers2['Number'] = 'Number';
+      $headers2['Category'] = 'Category';
+      $headers2['TeamName'] = 'team name 12 characters (display purposes)';
+      $headers2['FirstName'] = 'First name';
+      $headers2['LastName'] = 'Second name';
+      $headers2['Gender'] = 'Female';
+      $headers2['Age'] = 'Age';
+      $headers2['TeamNumber2'] = 'Team Number';
+
+      $data = array();
+      $data[] = $headers1;
+      $data[] = $headers2;
+      return $data;     
+    }
+    
+    private function build_junior_data_headers() {
+      
+      $headers1 = array();
+      $headers1['TeamNumber'] = 'Ekiden Race number format';
+      $headers1['ChipNumber'] = 'Individual';
+      $headers1['Suffix'] = '';
+      $headers1['FirstName'] = 'Runners Name';
+      $headers1['LastName'] = '';
+      $headers1['Gender'] = '';
+      $headers1['TeamName'] = 'Team Name';
+      $headers1['Category'] = '';
+      $headers1['TeamNumber2'] = '';
+
+      $headers2 = array();
+      $headers2['TeamNumber'] = 'Team Number';
+      $headers2['ChipNumber'] = 'Runner Number';
+      $headers2['Suffix'] = 'Suffix';
+      $headers2['FirstName'] = 'First';
+      $headers2['LastName'] = 'Second Name';
+      $headers2['Gender'] = 'Male/Female';
+      $headers2['TeamName'] = '';
+      $headers2['Category'] = 'Cat';
+      $headers2['TeamNumber2'] = 'Team';
+
+      $data = array();
+      $data[] = $headers1;
+      $data[] = $headers2;
+      return $data;          
+    }
+
+    private function build_senior_data($team, $runner, $chipNumber) {
+      $legSuffix = array("A", "B", "C", "D", "E", "F");
+
+      $data = array();
+      $data['TeamNumber'] = $team->number;
+      $data['Colour'] = '';
+      $data['ChipNumber'] = $chipNumber;
+      $data['Suffix'] = $legSuffix[$runner->leg - 1];
+      $data['Number'] = $runner->leg;
+      $data['Category'] = $team->category;
+      $data['TeamName'] = $team->name;
+      $data['FirstName'] = $runner->name;
+      $data['LastName'] = '';
+      $data['Gender'] = substr($runner->gender, 0, 1);
+      $data['Age'] = '';
+      $data['TeamNumber2'] = $team->number;
+
+      return $data;
+    }
+
+    private function build_junior_data($team, $runner, $chipNumber) {
+      $legSuffix = array("A", "B", "C", "D");
+
+      $data = array();
+      $data['TeamNumber'] = $team->number;
+      $data['ChipNumber'] = $chipNumber;
+      $data['Suffix'] = $legSuffix[$runner->leg - 1];
+      $data['FirstName'] = $runner->name;
+      $data['LastName'] = '';
+      $data['Gender'] = substr($runner->gender, 0, 1);
+      $data['TeamName'] = $team->name;
+      $data['Category'] = $team->category;
+      $data['TeamNumber2'] = $team->number;
+
+      return $data;
     }
 
     public function download_teams(\WP_REST_Request $request) {
-      $teams = $this->data_access->get_data();  
+      $data = $this->get_full_data();
 
-      return rest_ensure_response($teams);
+      return rest_ensure_response($data);
     }
     
     public function send_message(\WP_REST_Request $request) {

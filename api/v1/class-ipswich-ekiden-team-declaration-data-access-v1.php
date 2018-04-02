@@ -112,18 +112,6 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 			return $results;    
   }
   
-  public function get_data() {
-    $sql = "SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.is_junior_team as isJuniorTeam, t.number as number, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg 
-    FROM ietd_team_runners tr 
-    INNER JOIN ietd_teams t ON t.id = tr.team_id 
-    INNER JOIN ietd_clubs c on c.id = t.club_id 
-    INNER JOIN ietd_runners r ON r.id = tr.runner_id 
-    ORDER BY t.number, t.name, tr.leg";
-
-    $data = $this->db->get_results($sql, OBJECT);
-
-    return $data;
-  }
   public function get_all_teams() {
   
       $sql = "SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.is_junior_team as isJuniorTeam, t.number as number
