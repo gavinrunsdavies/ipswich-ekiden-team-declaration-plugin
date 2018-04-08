@@ -94,7 +94,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 			'callback'            => array( $this, 'get_clubs' )
 		) );	   
 
-    register_rest_route( $namespace, '/teams', array(
+    register_rest_route( $namespace, '/teams/', array(
 			'methods'             => \WP_REST_Server::READABLE,				
 			'callback'            => array( $this, 'get_teams' )
     ) );	
@@ -111,6 +111,17 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       'callback'            => array( $this, 'send_teams' ),
       'args'                => array(
 				'email'             => array(
+					'required'        => true
+					)
+				)
+    ) );
+    
+    register_rest_route( $namespace, '/teams/numbers', array(
+      'methods'             => \WP_REST_Server::CREATABLE,				
+      'permission_callback' => array( $this, 'permission_editor_check' ),
+      'callback'            => array( $this, 'update_team_numbers' ),
+      'args'                => array(
+				'teams'             => array(
 					'required'        => true
 					)
 				)
@@ -259,6 +270,19 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 			}
 
 			return $endpoints;
+    }
+
+    public function update_team_numbers(\WP_REST_Request $request) {
+
+      foreach ($request['teams'] as $team) {
+        if ($team['number'] > 0) {
+          $response = $this->data_access->update_team_number($team['id'], $team['number']);      
+        }
+      }
+		
+      $teams = $this->getTeams($request['race'] == 'seniors' ? 0 : 1);
+		
+      return rest_ensure_response( $teams );
     }
     
     public function send_teams(\WP_REST_Request $request) {
@@ -593,13 +617,21 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       
       if (isset($parameters['race'])) {
         if ($parameters['race'] == "seniors") {
-        $response = $this->data_access->get_teams(0);    
-      } else {      
-        $response = $this->data_access->get_teams(1);      
-      }
+          $race = 0;    
+        } else {      
+          $race = 1;      
+        }
       } else {
-        $response = $this->data_access->get_teams(null);  
+        $race = null;  
       }
+            
+      $teams = $this->getTeams($race);
+		
+      return rest_ensure_response( $teams );
+    }
+
+    private function getTeams($race) {
+      $response = $this->data_access->get_teams($race);        
             
       $teams = $this->add_runners_to_teams($response);
       
@@ -607,7 +639,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
         $this->update_team_category($team);
       }
 		
-      return rest_ensure_response( $teams );
+      return $teams;
     }
 		
     public function get_team(\WP_REST_Request $request) {
@@ -901,7 +933,9 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
         $teamCategory = $this->get_senior_team_category($team);
       }
       $team->complete = ($teamCategory != null);
-      $team->category = $teamCategory;      
+      $team->category = $teamCategory;    
+      // Hack to convert is Junior team to a Boolean
+      $team->isJuniorTeam = (bool) $team->isJuniorTeam;
     }
     
     private function add_runners_to_teams($results) {

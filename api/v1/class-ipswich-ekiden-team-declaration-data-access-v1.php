@@ -184,7 +184,15 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
     $result = $this->db->query($sql, OBJECT);
         
 		return $result;
-	}
+  }
+  
+  public function update_team_number($teamId, $number) {
+    $sql = $this->db->prepare("UPDATE ietd_teams SET number = %d WHERE id = %d", $number, $teamId);    
+    
+    $result = $this->db->query($sql, OBJECT);
+        
+		return $result;
+  }
   
         public function add_team_runner($teamId, $leg, $name, $gender, $ageCategory) {  	
       
