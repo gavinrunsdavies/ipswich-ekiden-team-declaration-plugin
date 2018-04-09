@@ -25,10 +25,13 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 		$this->register_routes_teams($namespace);						
     $this->register_routes_contact($namespace);		    	
 		
-		add_filter( 'rest_endpoints', array( $this, 'remove_wordpress_core_endpoints'), 10, 1 );		
+		add_filter( 'rest_endpoints', array( $this, 'remove_wordpress_core_endpoints'));		
 
     // Customise new user email
     add_filter( 'wp_new_user_notification_email', array($this, 'custom_wp_new_user_notification_email'), 10, 3 );
+    
+    // Customise user response for JWT login
+    add_filter( 'jwt_auth_token_before_dispatch', array($this, 'custom_wp_user_token_response'), 10, 2);
     
 	}
 	
@@ -261,7 +264,6 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 			return $endpoints;
     }
     
-
     public function send_teams(\WP_REST_Request $request) {
       
       $uid = md5(uniqid(time()));
@@ -351,6 +353,11 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
         return $wp_new_user_notification_email;
     }
     
+    public function custom_wp_user_token_response ($data, $user) {      
+      $data['isAdmin'] = (user_can($user, 'editor') || user_can($user, 'administrator')) ? true : false;
+      return $data;
+    }
+    
     public function create_user(\WP_REST_Request $request) {      
       $displayName = sprintf('%s %s', $request['firstName'], $request['lastName']);
       $user_id = wp_insert_user( array( 
@@ -377,6 +384,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       $response->firstName = $request['firstName'];
       $response->lastName = $request['lastName'];
       $response->password = $request['password'];
+      $response->isAdmin = false;
 
       return rest_ensure_response( $response );      
     }
