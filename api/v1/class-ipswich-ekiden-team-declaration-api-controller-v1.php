@@ -918,9 +918,9 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
         $teamCategory = "MensSuperVet";
       } elseif ($allFemale && $youngestFemale == "Open") {
         $teamCategory = "LadiesOpen";
-      } elseif ($allFemale && $youngestFemale == "V35") {
+      } elseif ($allFemale && ($youngestFemale == "V35" || $youngestFemale == "V40")) {
         $teamCategory = "LadiesVet";
-      } elseif ($allFemale && $youngestFemale == "V45") {
+      } elseif ($allFemale && ($youngestFemale == "V45" || $youngestFemale == "V50")) {
         $teamCategory = "LadiesSuperVet";
       } elseif (($youngestMale == "V60" && $allMale) || ($youngestFemale == "V60" && $allFemale) || ($youngestMale == "V60" && $youngestFemale == "V60")) {
         $teamCategory = "Over60";
