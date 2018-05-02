@@ -45,7 +45,7 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
   
     public function get_teams($isJuniorTeam) {  	
       
-      if ($isJuniorTeam == null) {
+      if (is_null($isJuniorTeam)) {
         $sql = "SELECT t.id as id, t.name as name, c.id as clubId, c.name as clubName, t.is_junior_team as isJuniorTeam, t.number as number
               FROM ietd_teams t
               INNER JOIN ietd_clubs c on c.id = t.club_id
