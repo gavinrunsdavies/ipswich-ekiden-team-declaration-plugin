@@ -504,7 +504,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     public function custom_wp_new_user_notification_email( $wp_new_user_notification_email, $user, $blogname ) {
         $subject = sprintf("Ipswich Ekiden Team Declaration Registration - %s", $user->user_login);
         $message = sprintf("Hi %s,\r\n\r\n", $user->display_name);
-        $message .= "Welcome to the Ipswich Ekiden Team Declaration Portal. To access the portal visit www.ipswichekiden.co.uk/app and use this email as login username and the password you choose at registration.\r\n\r\n";        
+        $message .= "Welcome to the Ipswich Ekiden Team Declaration Portal. To access the portal visit http://portal.ipswichekiden.co.uk and use this email as login username and the password you choose at registration.\r\n\r\n";        
         $message .= "Any questions please contact support.";
         $wp_new_user_notification_email['headers'] = "From: Ipswich Ekiden <admin@ipswichekiden.co.uk>";
         $wp_new_user_notification_email['subject'] = $subject;
