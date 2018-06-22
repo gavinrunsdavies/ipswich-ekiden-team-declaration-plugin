@@ -699,7 +699,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     public function update_team(\WP_REST_Request $request) {   
       if (!$this->is_valid_team_captain($request['id'])) {
         return new \WP_Error( 'rest_forbidden',
-					sprintf( 'You do not have enough privileges to use this update this team.' ), array( 'status' => 403 ) );
+					sprintf( 'You do not have enough privileges to update this team.' ), array( 'status' => 403 ) );
       }
         
       $response = $this->data_access->update_team($request['id'], $request['name'], $request['clubId'], $request['isJuniorTeam']);           
@@ -720,7 +720,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     public function delete_team(\WP_REST_Request $request) {
       if (!$this->is_valid_team_captain($request['id'])) {
         return new \WP_Error( 'rest_forbidden',
-					sprintf( 'You do not have enough privileges to use this delete this team.' ), array( 'status' => 403 ) );
+					sprintf( 'You do not have enough privileges to delete this team.' ), array( 'status' => 403 ) );
       }
       
       $response = $this->data_access->delete_team($request['id']);
@@ -751,6 +751,9 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
     }     
     
     private function is_valid_team_captain ($teamId) {
+      if (current_user_can('editor') || current_user_can('administrator'))
+        return true;
+      
       $current_user = wp_get_current_user();
       
       if (!($current_user instanceof \WP_User) || $current_user->ID == 0)
