@@ -24,8 +24,6 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 		$this->register_routes_authentication($namespace);
 		$this->register_routes_teams($namespace);						
     $this->register_routes_contact($namespace);		    	
-		
-		add_filter( 'rest_endpoints', array( $this, 'remove_wordpress_core_endpoints'));		
 
     // Customise new user email
     add_filter( 'wp_new_user_notification_email', array($this, 'custom_wp_new_user_notification_email'), 10, 3 );
@@ -258,22 +256,6 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       
       return true;
 		}
-	
-		/**
-		 * Unsets all core WP endpoints registered by the WordPress REST API (via rest_endpoints filter)
-		 * @param  array   $endpoints   registered endpoints
-		 * @return array
-		 */
-		public function remove_wordpress_core_endpoints( $endpoints ) {
-
-			foreach ( array_keys( $endpoints ) as $endpoint ) {
-				if ( stripos( $endpoint, '/wp/v2' ) === 0 ) {
-					unset( $endpoints[ $endpoint ] );
-				}
-			}
-
-			return $endpoints;
-    }
     
     public function update_team_numbers(\WP_REST_Request $request) {
       foreach ($request['teams'] as $team) {
