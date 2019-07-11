@@ -424,7 +424,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
       $data['FirstName'] = $runner->name;
       $data['LastName'] = '';
       $data['Gender'] = substr($runner->gender, 0, 1);
-      $data['Age'] = '';
+      $data['Age'] = 30;
       $data['TeamNumber2'] = $team->number;
 
       return $data;
