@@ -16,7 +16,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 namespace IpswichEkidenTeamDeclaration\V1;
 
-class Ipswich_Ekiden_Team_Declaration_Data_Access {		
+class IpswichEkidenTeamDeclarationDataAccess {		
 
 	private $db; 
 
@@ -32,8 +32,9 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 							
 			$results = $this->db->get_results($sql, OBJECT);
       
-      if ($this->db->num_rows == 0)
+      if ($this->db->num_rows == 0) {
 				return array();
+      }
 			
 			if (!$results)	{			
 				return new \WP_Error( 'get_clubs',
@@ -60,8 +61,9 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 							
 			$teams = $this->db->get_results($sql, OBJECT);
       
-      if ($this->db->num_rows == 0)
+      if ($this->db->num_rows == 0) {
 				$teams = array();
+      }
       
       $sql = "SELECT tr.team_id as teamId, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
             FROM ietd_team_runners tr
@@ -70,8 +72,9 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
             
       $runners = $this->db->get_results($sql, OBJECT);
       
-      if ($this->db->num_rows == 0)
+      if ($this->db->num_rows == 0) {
 				$runners = array();
+      }
 
       $results = new \stdclass;
       $results->teams = $teams;
@@ -90,8 +93,9 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 							
 			$teams = $this->db->get_results($sql, OBJECT);
       
-      if ($this->db->num_rows == 0)
-				return array();
+      if ($this->db->num_rows == 0) {
+				$teams = array();
+      }
       
       $sql = $this->db->prepare("SELECT tr.team_id as teamId, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
             FROM ietd_team_runners tr
@@ -102,8 +106,9 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
             
       $runners = $this->db->get_results($sql, OBJECT);
       
-      if ($this->db->num_rows == 0)
+      if ($this->db->num_rows == 0) {
 				$runners = array();
+      }
 
       $results = new \stdclass;
       $results->teams = $teams;
@@ -121,8 +126,9 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
           
   $teams = $this->db->get_results($sql, OBJECT);
   
-  if ($this->db->num_rows == 0)
-    return array();
+  if ($this->db->num_rows == 0) {
+    $teams = array();
+  }
   
   $sql = "SELECT tr.team_id as teamId, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
         FROM ietd_team_runners tr
@@ -132,8 +138,9 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
         
   $runners = $this->db->get_results($sql, OBJECT);
   
-  if ($this->db->num_rows == 0)
+  if ($this->db->num_rows == 0) {
     $runners = array();
+  }
 
   $results = new \stdclass;
   $results->teams = $teams;
@@ -189,9 +196,7 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
   public function update_team_number($teamId, $number) {
     $sql = $this->db->prepare("UPDATE ietd_teams SET number = %d WHERE id = %d", $number, $teamId);    
     
-    $result = $this->db->query($sql, OBJECT);
-        
-		return $result;
+    return $this->db->query($sql, OBJECT);
   }
   
         public function add_team_runner($teamId, $leg, $name, $gender, $ageCategory) {  	
@@ -211,8 +216,7 @@ class Ipswich_Ekiden_Team_Declaration_Data_Access {
 						'Unknown error in updating team in to the database', array( 'status' => 500 ) );
          }
       }
-      	
-			return;			
+	
 	}
   
      public function update_team_runner($teamId, $leg, $name, $gender, $ageCategory) {  	

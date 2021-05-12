@@ -3,18 +3,18 @@ namespace IpswichEkidenTeamDeclaration\V1;
 	
 require_once plugin_dir_path( __FILE__ ) .'class-ipswich-ekiden-team-declaration-data-access-v1.php';
 
-class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
+class IpswichEkidenTeamDeclarationAPIControllerV1 {
 	
 	private $data_access;
 	
 	private $user;
   
-  const Unattached = 989;
-  const Male = "Male";
-  const Female = "Female";
+  const UNATTACHED = 989;
+  const MALE = "Male";
+  const FEMALE = "Female";
 	
 	public function __construct() {
-		$this->data_access = new Ipswich_Ekiden_Team_Declaration_Data_Access();
+		$this->data_access = new IpswichEkidenTeamDeclarationDataAccess();
 	}
 	
 	public function rest_api_init( ) {			
@@ -574,9 +574,9 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
         }
         
         for ($j = 0; $j < count($teams[$i]->runners); $j++) {                        
-          if ($teams[$i]->runners[$j]->gender == self::Male) {
+          if ($teams[$i]->runners[$j]->gender == self::MALE) {
             $response->maleRunnerCount++;
-          } else if ($teams[$i]->runners[$j]->gender == self::Female) {
+          } else if ($teams[$i]->runners[$j]->gender == self::FEMALE) {
             $response->femaleRunnerCount++;
           }
         }                
@@ -648,7 +648,7 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
 					sprintf( 'You do not have enough privileges to use this API.' ), array( 'status' => 403 ) );
       }
       
-      if( current_user_can('editor') || current_user_can('administrator') ) {
+      if ( current_user_can('editor') || current_user_can('administrator') ) {
         $response = $this->data_access->get_all_teams();  
       } else {      
         $response = $this->data_access->get_my_teams($current_user->ID);         
@@ -824,13 +824,13 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
             return null;
         }
         
-        if ($team->runners[$i]->gender == self::Male) {
+        if ($team->runners[$i]->gender == self::MALE) {
           $allFemale = false;
           
           if ($team->runners[$i]->ageCategory > $youngestMale) {
             $youngestMale = $team->runners[$i]->ageCategory;
           }
-        } elseif ($team->runners[$i]->gender == self::Female) {
+        } elseif ($team->runners[$i]->gender == self::FEMALE) {
           $allMale = false;
           
           if ($team->runners[$i]->ageCategory > $youngestFemale) {
@@ -861,7 +861,6 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
         return null; 
       }
       
-      $teamCategory;
       $youngestMale = "V70";
       $youngestFemale = "V70";
       $allMale = true;
@@ -875,17 +874,17 @@ class Ipswich_Ekiden_Team_Declaration_API_Controller_V1 {
             return null;
         }
        
-        if ($team->clubId == self::Unattached) {
+        if ($team->clubId == self::UNATTACHED) {
           return 'Unaffiliated / Social';          
         }
         
-        if ($team->runners[$i]->gender == self::Male) {
+        if ($team->runners[$i]->gender == self::MALE) {
           $allFemale = false;
           
           if ($team->runners[$i]->ageCategory < $youngestMale) {
             $youngestMale = $team->runners[$i]->ageCategory;
           }
-        } elseif ($team->runners[$i]->gender == self::Female) {
+        } elseif ($team->runners[$i]->gender == self::FEMALE) {
           $allMale = false;
           $numberOfFemale++;
           

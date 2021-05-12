@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: Ipswich Ekiden Team Declaration
+Plugin Name: Ipswich Ekiden Team Declaration API
 Plugin URI:
 Description:
 Version: 0
