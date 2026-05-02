@@ -65,7 +65,7 @@ class IpswichEkidenTeamDeclarationDataAccess {
 				$teams = array();
       }
       
-      $sql = "SELECT tr.team_id as teamId, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
+      $sql = "SELECT tr.team_id as teamId, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, r.date_of_birth as dateOfBirth, r.medical_info as medicalInfo, tr.leg as leg
             FROM ietd_team_runners tr
             INNER JOIN ietd_runners r ON r.id = tr.runner_id
             ORDER BY teamId, leg";
@@ -97,7 +97,7 @@ class IpswichEkidenTeamDeclarationDataAccess {
 				$teams = array();
       }
       
-      $sql = $this->db->prepare("SELECT tr.team_id as teamId, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
+      $sql = $this->db->prepare("SELECT tr.team_id as teamId, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, r.date_of_birth as dateOfBirth, r.medical_info as medicalInfo, tr.leg as leg
             FROM ietd_team_runners tr
             INNER JOIN ietd_runners r ON r.id = tr.runner_id
             INNER JOIN ietd_teams t ON t.id = tr.team_id
@@ -130,7 +130,7 @@ class IpswichEkidenTeamDeclarationDataAccess {
     $teams = array();
   }
   
-  $sql = "SELECT tr.team_id as teamId, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
+  $sql = "SELECT tr.team_id as teamId, r.id as runnerId, r.name as name, r.gender as gender, r.age_category as ageCategory, r.date_of_birth as dateOfBirth, r.medical_info as medicalInfo, tr.leg as leg
         FROM ietd_team_runners tr
         INNER JOIN ietd_runners r ON r.id = tr.runner_id
         INNER JOIN ietd_teams t ON t.id = tr.team_id
@@ -158,7 +158,7 @@ class IpswichEkidenTeamDeclarationDataAccess {
 		  
 		  $team = $this->db->get_row($sql);
 		  
-      $sql = $this->db->prepare("SELECT r.id as id, r.name as name, r.gender as gender, r.age_category as ageCategory, tr.leg as leg
+      $sql = $this->db->prepare("SELECT r.id as id, r.name as name, r.gender as gender, r.age_category as ageCategory, r.date_of_birth as dateOfBirth, r.medical_info as medicalInfo, tr.leg as leg
             FROM ietd_team_runners tr
             INNER JOIN ietd_runners r ON r.id = tr.runner_id
             WHERE tr.team_id = %d
@@ -199,9 +199,9 @@ class IpswichEkidenTeamDeclarationDataAccess {
     return $this->db->query($sql, OBJECT);
   }
   
-        public function add_team_runner($teamId, $leg, $name, $gender, $ageCategory) {  	
+public function add_team_runner($teamId, $leg, $name, $gender, $ageCategory, $dateOfBirth = null, $medicalInfo = null) {  	
       
-      $sql = $this->db->prepare("INSERT INTO ietd_runners(name, age_category, gender) VALUES (%s, %s, %s)", $name, $ageCategory, $gender);
+      $sql = $this->db->prepare("INSERT INTO ietd_runners(name, age_category, gender, date_of_birth, medical_info) VALUES (%s, %s, %s, %s, %s)", $name, $ageCategory, $gender, $dateOfBirth, $medicalInfo);
 							
 			$result = $this->db->query($sql, OBJECT);
 			
@@ -219,7 +219,7 @@ class IpswichEkidenTeamDeclarationDataAccess {
 	
 	}
   
-     public function update_team_runner($teamId, $leg, $name, $gender, $ageCategory) {  	
+     public function update_team_runner($teamId, $leg, $name, $gender, $ageCategory, $dateOfBirth = null, $medicalInfo = null) {  	
      
       $sql = $this->db->prepare("SELECT r.id as id
       FROM ietd_team_runners tr
@@ -230,8 +230,8 @@ class IpswichEkidenTeamDeclarationDataAccess {
       
       if ($runnerId > 0) {                            
         $sql = $this->db->prepare("UPDATE ietd_runners r
-                                   SET r.name = '%s', r.age_category = '%s', r.gender = '%s'  
-                                   WHERE r.id = %d", $name, $ageCategory, $gender, $runnerId);
+                                   SET r.name = '%s', r.age_category = '%s', r.gender = '%s', r.date_of_birth = '%s', r.medical_info = '%s'
+                                   WHERE r.id = %d", $name, $ageCategory, $gender, $dateOfBirth, $medicalInfo, $runnerId);
 
         $result = $this->db->query($sql, OBJECT);
         
@@ -240,7 +240,7 @@ class IpswichEkidenTeamDeclarationDataAccess {
               'Unknown error in updating team in to the database', array( 'status' => 500 ) );
         }     
       } else {
-        return $this->add_team_runner($teamId, $leg, $name, $gender, $ageCategory);
+        return $this->add_team_runner($teamId, $leg, $name, $gender, $ageCategory, $dateOfBirth, $medicalInfo);
       }            
     }
 	

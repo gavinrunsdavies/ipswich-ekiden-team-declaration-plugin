@@ -7,7 +7,7 @@ Version: 0
 Author: Gavin Davies
 Author URI: https://github.com/gavinrunsdavies/
 */
-namespace IpswichEkidenTeamDeclaration
+namespace IpswichEkidenTeamDeclaration;
 		
 $go = new Program();
 

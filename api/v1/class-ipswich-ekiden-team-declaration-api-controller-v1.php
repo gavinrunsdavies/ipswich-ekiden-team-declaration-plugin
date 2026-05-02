@@ -687,8 +687,14 @@ class IpswichEkidenTeamDeclarationAPIControllerV1 {
       $response = $this->data_access->update_team($request['id'], $request['name'], $request['clubId'], $request['isJuniorTeam']);           
       
       foreach ($request['runners'] as $runner) {
-        if ( !empty($runner['name']) || !empty($runner['ageCategory']) || !empty($runner['gender'])) {          
-          $response = $this->data_access->update_team_runner($request['id'], $runner['leg'], $runner['name'], $runner['gender'], $runner['ageCategory']);
+        if ( !empty($runner['name']) || !empty($runner['ageCategory']) || !empty($runner['gender']) || !empty($runner['dateOfBirth'])) {          
+          $ageCategory = $runner['ageCategory'];
+          // For junior teams with date of birth, calculate the age category
+          if ($request['isJuniorTeam'] && !empty($runner['dateOfBirth'])) {
+            $ageCategory = $this->calculate_junior_age_category($runner['dateOfBirth']);
+          }
+          $medicalInfo = isset($runner['medicalInfo']) ? $runner['medicalInfo'] : null;
+          $response = $this->data_access->update_team_runner($request['id'], $runner['leg'], $runner['name'], $runner['gender'], $ageCategory, $runner['dateOfBirth'], $medicalInfo);
         }
       }
       
@@ -806,14 +812,36 @@ class IpswichEkidenTeamDeclarationAPIControllerV1 {
       return true;      
     }
     
+    private function calculate_junior_age_category($dateOfBirth) {
+      // Calculate age on 31st August of the current year
+      $currentYear = date('Y');
+      $referenceDate = new \DateTime($currentYear . '-08-31');
+      $birthDate = new \DateTime($dateOfBirth);
+      
+      if ($birthDate > $referenceDate) {
+        $referenceDate->modify('-1 year');
+      }
+      
+      $age = $referenceDate->diff($birthDate)->y;
+      
+      // Categorize based on age: bands of 2 years (U12, U14, U16)
+      if ($age < 12) {
+        return 'U12';
+      } elseif ($age < 14) {
+        return 'U14';
+      } else {
+        return 'U16';
+      }
+    }
+    
     private function get_junior_team_category($team) {
       if (count($team->runners) != 4) {
         return null; 
       }
       
       $teamCategory;
-      $youngestMale = "U11";
-      $youngestFemale = "U11";
+      $youngestMale = "U16";
+      $youngestFemale = "U16";
       $allMale = true;
       $allFemale = true;
       
@@ -827,30 +855,37 @@ class IpswichEkidenTeamDeclarationAPIControllerV1 {
         if ($team->runners[$i]->gender == self::MALE) {
           $allFemale = false;
           
-          if ($team->runners[$i]->ageCategory > $youngestMale) {
+          if ($team->runners[$i]->ageCategory < $youngestMale) {
             $youngestMale = $team->runners[$i]->ageCategory;
           }
         } elseif ($team->runners[$i]->gender == self::FEMALE) {
           $allMale = false;
           
-          if ($team->runners[$i]->ageCategory > $youngestFemale) {
+          if ($team->runners[$i]->ageCategory < $youngestFemale) {
             $youngestFemale = $team->runners[$i]->ageCategory;
           }
         }
       }
       
-      if ($allMale && $youngestMale == "U11") {
-        $teamCategory = "U11B";
+      // Team category based on youngest runners
+      if ($allMale && $youngestMale == "U12") {
+        $teamCategory = "U12B";
+      } elseif ($allMale && $youngestMale == "U14") {
+        $teamCategory = "U14B";
       } elseif ($allMale) {
-        $teamCategory = "12B";
-      } elseif ($allFemale && $youngestFemale == "U11") {
-        $teamCategory = "U11G";
+        $teamCategory = "U16B";
+      } elseif ($allFemale && $youngestFemale == "U12") {
+        $teamCategory = "U12G";
+      } elseif ($allFemale && $youngestFemale == "U14") {
+        $teamCategory = "U14G";
       } elseif ($allFemale) {
-        $teamCategory = "12G";
-      } elseif ($youngestFemale == "U11" && $youngestMale == "U11") {
-        $teamCategory = "U11MX";
+        $teamCategory = "U16G";
+      } elseif ($youngestFemale == "U12" && $youngestMale == "U12") {
+        $teamCategory = "U12MX";
+      } elseif ($youngestFemale == "U14" && $youngestMale == "U14") {
+        $teamCategory = "U14MX";
       } else {
-        $teamCategory = "12MX"; // Default
+        $teamCategory = "U16MX"; // Default
       }
       
       return $teamCategory;
