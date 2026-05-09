@@ -21,10 +21,9 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.1'
-          tools: php-parallel-lint
 
       - name: ✅ Lint PHP files
-        run: php-parallel-lint --exclude vendor --exclude node_modules .
+        run: find . -name "*.php" -not -path "./vendor/*" -not -path "./node_modules/*" -exec php -l {} \;
 
   web-deploy:
     name: 🎉 Deploy
