@@ -43,44 +43,49 @@ class IpswichEkidenTeamDeclarationAPIControllerV1 {
 	
 	private function register_routes_authentication($namespace) {
     register_rest_route( $namespace, '/users', array(
-			'methods'             => \WP_REST_Server::CREATABLE,
-			'callback'            => array( $this, 'create_user' ),
-			'args'                => array(
-				'email'           => array(
-					'required'          => true
-					),
+      'methods'             => \WP_REST_Server::CREATABLE,
+      'callback'            => array( $this, 'create_user' ),
+      'args'                => array(
+        'email'           => array(
+          'required'          => true,
+          'validate_callback' => array( $this, 'is_valid_email' ),
+          'sanitize_callback' => 'sanitize_email',
+        ),
         'password'           => array(
-					'required'          => true
-					),
+          'required'          => true,
+          'validate_callback' => array( $this, 'is_valid_password' ),
+        ),
         'firstName'           => array(
-					'required'          => true
-					),
+          'required'          => true,
+          'sanitize_callback' => 'sanitize_text_field',
+        ),
         'lastName'           => array(
-					'required'          => true
-					)
-				)			
-		) ); 
-	}
-  
+          'required'          => true,
+          'sanitize_callback' => 'sanitize_text_field',
+        )
+      )
+    ) );
+  }
+
   private function register_routes_contact($namespace) {
     register_rest_route( $namespace, '/message', array(
-			'methods'             => \WP_REST_Server::CREATABLE,
-			'callback'            => array( $this, 'send_message' ),
-			'args'                => array(
-				'email'           => array(
-					'required'          => true
-					),
+      'methods'             => \WP_REST_Server::CREATABLE,
+      'callback'            => array( $this, 'send_message' ),
+      'args'                => array(
+        'email'           => array(
+          'required'          => true
+          ),
         'message'           => array(
-					'required'          => true
-					),
+          'required'          => true
+          ),
         'firstName'           => array(
-					'required'          => true
-					),
+          'required'          => true
+          ),
         'lastName'           => array(
-					'required'          => true
-					)
-				)			
-		) ); 
+          'required'          => true
+          )
+      )
+    ) );
   }
 
   private function register_routes_teams($namespace) {		
@@ -500,32 +505,35 @@ class IpswichEkidenTeamDeclarationAPIControllerV1 {
     }
     
     public function create_user(\WP_REST_Request $request) {      
-      $displayName = sprintf('%s %s', $request['firstName'], $request['lastName']);
+      $email = sanitize_email( $request['email'] );
+      $first_name = sanitize_text_field( $request['firstName'] );
+      $last_name = sanitize_text_field( $request['lastName'] );
+      $password = trim( $request['password'] );
+      $display_name = sprintf('%s %s', $first_name, $last_name);
+
       $user_id = wp_insert_user( array( 
-        'user_login'  =>  $request['email'],
-        'user_email'  =>  $request['email'],
-        'user_pass'   => $request['password'],
-        'display_name' => $displayName,
-        'first_name' => $request['firstName'],
-        'last_name' => $request['lastName'],
-        'role' => 'EkidenTeamDeclaratioon'
+        'user_login'   => $email,
+        'user_email'   => $email,
+        'user_pass'    => $password,
+        'display_name' => $display_name,
+        'first_name'   => $first_name,
+        'last_name'    => $last_name,
+        'role'         => 'subscriber'
       ) );
 
       if ( is_wp_error( $user_id ) ) {
-         return new \WP_Error( 'rest_invalid_param',
-					sprintf( 'Registration update failed for username %s', $request['email'] ), array( 'status' => 400 ) );
+        return new \WP_Error( 'rest_invalid_param',
+          sprintf( 'Registration failed for username %s', $email ), array( 'status' => 400 ) );
       }  
       
-      // Inform user and admin of new registration
-      wp_new_user_notification($user_id, null, "both");
+      wp_new_user_notification( $user_id, null, 'both' );
       
       $response = new \stdClass;
-			$response->display_name = $displayName;
-		  $response->email = $request['email'];
-      $response->firstName = $request['firstName'];
-      $response->lastName = $request['lastName'];
-      $response->password = $request['password'];
-      $response->isAdmin = false;
+      $response->user_id = $user_id;
+      $response->display_name = $display_name;
+      $response->email = $email;
+      $response->firstName = $first_name;
+      $response->lastName = $last_name;
 
       return rest_ensure_response( $response );      
     }
@@ -732,23 +740,69 @@ class IpswichEkidenTeamDeclarationAPIControllerV1 {
         return new \WP_Error( 'rest_forbidden',
 					sprintf( 'You do not have enough privileges to use this update this team.' ), array( 'status' => 403 ) );
       } 
-      
-      $response = $this->data_access->update_team_runner($request['id'], $request['leg'], $request['field'], $request['value']);
-		
+
+      $team = $this->data_access->get_team( $request['id'] );
+      if ( ! $team || empty( $team->runners ) ) {
+        return new \WP_Error( 'rest_invalid_param',
+          sprintf( 'Team %d does not exist or has no runners.', $request['id'] ), array( 'status' => 404 ) );
+      }
+
+      $runner = null;
+      foreach ( $team->runners as $existingRunner ) {
+        if ( $existingRunner->leg == $request['leg'] ) {
+          $runner = $existingRunner;
+          break;
+        }
+      }
+
+      if ( ! $runner ) {
+        return new \WP_Error( 'rest_invalid_param',
+          sprintf( 'Runner leg %d not found for team %d.', $request['leg'], $request['id'] ), array( 'status' => 404 ) );
+      }
+
+      $field = $request['field'];
+      $value = sanitize_text_field( $request['value'] );
+
+      switch ( $field ) {
+        case 'name':
+          $runner->name = $value;
+          break;
+        case 'gender':
+          $runner->gender = $value;
+          break;
+        case 'ageCategory':
+          $runner->ageCategory = $value;
+          break;
+        default:
+          return new \WP_Error( 'rest_invalid_param',
+            sprintf( 'The field %s is not allowed.', $field ), array( 'status' => 400 ) );
+      }
+
+      $response = $this->data_access->update_team_runner(
+        $request['id'],
+        $request['leg'],
+        $runner->name,
+        $runner->gender,
+        $runner->ageCategory,
+        isset( $runner->dateOfBirth ) ? $runner->dateOfBirth : null,
+        isset( $runner->medicalInfo ) ? $runner->medicalInfo : null
+      );
+
       return rest_ensure_response( $response );
-    }     
-    
-    private function is_valid_team_captain ($teamId) {
-      if (current_user_can('editor') || current_user_can('administrator'))
+    }
+
+    private function is_valid_team_captain( $teamId ) {
+      if ( current_user_can( 'editor' ) || current_user_can( 'administrator' ) ) {
         return true;
-      
+      }
+
       $current_user = wp_get_current_user();
-      
-      if (!($current_user instanceof \WP_User) || $current_user->ID == 0)
+      if ( ! ( $current_user instanceof \WP_User ) || $current_user->ID == 0 ) {
         return false;
-      
-      $response = $this->data_access->get_team($teamId);
-      return $response->captainId == $current_user->ID;      
+      }
+
+      $response = $this->data_access->get_team( $teamId );
+      return $response->captainId == $current_user->ID;
     }
 
 	public function is_valid_id( $value, $request, $key ) {
@@ -811,29 +865,24 @@ class IpswichEkidenTeamDeclarationAPIControllerV1 {
 
       return true;      
     }
-    
-    private function calculate_junior_age_category($dateOfBirth) {
-      // Calculate age on 31st August of the current year
-      $currentYear = date('Y');
-      $referenceDate = new \DateTime($currentYear . '-08-31');
-      $birthDate = new \DateTime($dateOfBirth);
-      
-      if ($birthDate > $referenceDate) {
-        $referenceDate->modify('-1 year');
+
+    public function is_valid_email( $value, $request, $key ) {
+      if ( ! is_email( $value ) ) {
+        return new \WP_Error( 'rest_invalid_param',
+          sprintf( '%s is not a valid email address.', $key), array( 'status' => 400 ) );
       }
-      
-      $age = $referenceDate->diff($birthDate)->y;
-      
-      // Categorize based on age: bands of 2 years (U12, U14, U16)
-      if ($age < 12) {
-        return 'U12';
-      } elseif ($age < 14) {
-        return 'U14';
-      } else {
-        return 'U16';
-      }
+
+      return true;
     }
-    
+
+    public function is_valid_password( $value, $request, $key ) {
+      if ( strlen( trim( $value ) ) < 8 ) {
+        return new \WP_Error( 'rest_invalid_param',
+          sprintf( '%s must be at least 8 characters.', $key), array( 'status' => 400 ) );
+      }
+
+      return true;
+    }
     private function get_junior_team_category($team) {
       if (count($team->runners) != 4) {
         return null; 

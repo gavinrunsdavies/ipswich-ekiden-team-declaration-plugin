@@ -1,0 +1,50 @@
+# 🚀 Deploy to JAFFA test website when pushing to any feature branch
+
+name: 🚀 Deploy to test website on push
+
+on:
+  push:
+    branches: [ 'feature/**' ]
+
+  # Allows manual trigger
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: 🔍 Lint PHP code
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v4
+
+      - name: 🛠️ Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: php-parallel-lint
+
+      - name: ✅ Lint PHP files
+        run: php-parallel-lint --exclude vendor --exclude node_modules .
+
+  web-deploy:
+    name: 🎉 Deploy
+    runs-on: ubuntu-latest
+    environment: Test JAFFA
+    needs: lint
+
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v4
+
+      # ✅ Step 1: Deploy files to test site via FTP
+      - name: 📂 Sync files to test
+        uses: SamKirkland/FTP-Deploy-Action@4.3.0
+        with:
+          server: ftp.ipswichjaffa.org.uk
+          username: githubftp@test.ipswichjaffa.org.uk
+          password: ${{ secrets.FtpServerPassword }}
+          server-dir: public_html/wp-content/plugins/ipswich-ekiden-team-declaration-api/
+          dry-run: false
+          exclude: |
+            **/.git*
+            **/.git*/**
