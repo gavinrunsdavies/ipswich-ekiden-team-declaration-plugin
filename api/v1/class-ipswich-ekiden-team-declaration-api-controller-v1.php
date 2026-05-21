@@ -957,10 +957,6 @@ class IpswichEkidenTeamDeclarationAPIControllerV1 {
               empty($team->runners[$i]->gender)) {
             return null;
         }
-       
-        if ($team->clubId == self::UNATTACHED) {
-          return 'Unaffiliated / Social';          
-        }
         
         if ($team->runners[$i]->gender == self::MALE) {
           $allFemale = false;
