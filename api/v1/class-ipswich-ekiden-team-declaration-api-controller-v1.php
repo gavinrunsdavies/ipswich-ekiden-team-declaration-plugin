@@ -961,61 +961,42 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
 
   private function get_junior_team_category($team)
   {
-    if (count($team->runners) != 4) {
+    if (count($team->runners) !== 4) {
       return null;
     }
 
-    $youngestMale = "U16";
-    $youngestFemale = "U16";
+    $oldestMale = "U12";
+    $oldestFemale = "U12";
     $allMale = true;
     $allFemale = true;
 
-    for ($i = 0; $i < count($team->runners); $i++) {
-      if (
-        empty($team->runners[$i]->name) ||
-        empty($team->runners[$i]->ageCategory) ||
-        empty($team->runners[$i]->gender)
-      ) {
+    foreach ($team->runners as $runner) {
+      if (empty($runner->name) || empty($runner->ageCategory) || empty($runner->gender)) {
         return null;
       }
 
-      if ($team->runners[$i]->gender == self::MALE) {
+      if ($runner->gender === self::MALE) {
         $allFemale = false;
-
-        if ($team->runners[$i]->ageCategory < $youngestMale) {
-          $youngestMale = $team->runners[$i]->ageCategory;
+        if ($runner->ageCategory > $oldestMale) {
+          $oldestMale = $runner->ageCategory;
         }
-      } elseif ($team->runners[$i]->gender == self::FEMALE) {
+      } elseif ($runner->gender === self::FEMALE) {
         $allMale = false;
-
-        if ($team->runners[$i]->ageCategory < $youngestFemale) {
-          $youngestFemale = $team->runners[$i]->ageCategory;
+        if ($runner->ageCategory > $oldestFemale) {
+          $oldestFemale = $runner->ageCategory;
         }
       }
     }
 
-    // Team category based on youngest runners
-    if ($allMale && $youngestMale == "U12") {
-      $teamCategory = "U12B";
-    } elseif ($allMale && $youngestMale == "U14") {
-      $teamCategory = "U14B";
-    } elseif ($allMale) {
-      $teamCategory = "U16B";
-    } elseif ($allFemale && $youngestFemale == "U12") {
-      $teamCategory = "U12G";
-    } elseif ($allFemale && $youngestFemale == "U14") {
-      $teamCategory = "U14G";
-    } elseif ($allFemale) {
-      $teamCategory = "U16G";
-    } elseif ($youngestFemale == "U12" && $youngestMale == "U12") {
-      $teamCategory = "U12MX";
-    } elseif ($youngestFemale == "U14" && $youngestMale == "U14") {
-      $teamCategory = "U14MX";
-    } else {
-      $teamCategory = "U16MX"; // Default
-    }
+    $oldestOverall = max($oldestMale, $oldestFemale);
 
-    return $teamCategory;
+    if ($allMale) {
+      return $oldestMale . 'B';
+    } elseif ($allFemale) {
+      return $oldestFemale . 'G';
+    } else {
+      return $oldestOverall . 'MX';
+    }
   }
 
   private function get_senior_team_category($team)
