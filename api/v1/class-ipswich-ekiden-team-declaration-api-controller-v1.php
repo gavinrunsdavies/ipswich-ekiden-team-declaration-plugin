@@ -115,17 +115,6 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
       'callback'            => array($this, 'download_teams')
     ));
 
-    register_rest_route($namespace, '/teams/send', array(
-      'methods'             => \WP_REST_Server::CREATABLE,
-      'permission_callback' => array($this, 'permission_editor_check'),
-      'callback'            => array($this, 'send_teams'),
-      'args'                => array(
-        'email'             => array(
-          'required'        => true
-        )
-      )
-    ));
-
     register_rest_route($namespace, '/teams/numbers', array(
       'methods'             => \WP_REST_Server::CREATABLE,
       'permission_callback' => array($this, 'permission_editor_check'),
@@ -287,53 +276,6 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
     return rest_ensure_response($teams);
   }
 
-  public function send_teams(\WP_REST_Request $request)
-  {
-    $user = wp_get_current_user();
-    $fromAddress = $user->first_name . " " . $user->last_name . " <" . $user->user_email . ">";
-
-    // Additional headers     
-    $headers = array();
-    $headers[] = 'From: ' . $fromAddress;
-    $headers[] = 'Cc: admin@ipswichekiden.co.uk';
-    $headers[] = 'Content-Type: text/html; charset=UTF-8';
-
-    $subject = "Ipswich Ekiden Team Declaration submitted teams ";
-
-    $footerHtml  = "<br><br><p><small>This email was automatically sent via a request made on the Ipswich Ekiden Team declaration Portal.</small></p>";
-
-    $html = '<p>Please find attached the declared and teams for the Ipswich Ekiden</p>';
-    $html .= $footerHtml;
-
-    $data = $this->get_full_data();
-
-    $seniorFilename = "IpswichEkidenSeniorTeams" . date("Ymd") . ".csv";
-    $juniorFilename = "IpswichEkidenJuniorTeams" . date("Ymd") . ".csv";
-
-    $attachments = array();
-    $attachments[] = $this->write_data_to_file($seniorFilename, $data->seniors);
-    $attachments[] = $this->write_data_to_file($juniorFilename, $data->juniors);
-
-    wp_mail($request['email'], $subject, $html, $headers, $attachments);
-
-    $empty = new \stdClass;
-    return rest_ensure_response($empty);
-  }
-
-  private function write_data_to_file($filename, $data)
-  {
-    //Open file pointer.
-    $fp = fopen($filename, 'w');
-
-    foreach ($data as $row) {
-      fputcsv($fp, $row);
-    }
-
-    fclose($fp);
-
-    return realpath($filename);
-  }
-
   private function get_full_data()
   {
     $response = $this->data_access->get_all_teams();
@@ -379,6 +321,7 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
     $headers1['Gender'] = 'Male or';
     $headers1['Age'] = '';
     $headers1['TeamNumber2'] = 'Ekiden Race number format';
+    $headers1['MedicalInfo'] = 'Medical info';
 
     $headers2 = array();
     $headers2['TeamNumber'] = 'Team Number';
@@ -393,6 +336,7 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
     $headers2['Gender'] = 'Female';
     $headers2['Age'] = 'Age';
     $headers2['TeamNumber2'] = 'Team Number';
+    $headers2['MedicalInfo'] = '';
 
     $data = array();
     $data[] = $headers1;
@@ -414,6 +358,7 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
     $headers1['Category'] = '';
     $headers1['DateOfBirth'] = 'Date of Birth';
     $headers1['TeamNumber2'] = '';
+    $headers1['MedicalInfo'] = 'Medical info';
 
     $headers2 = array();
     $headers2['TeamNumber'] = 'Team Number';
@@ -426,6 +371,7 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
     $headers2['Category'] = 'Cat';
     $headers2['DateOfBirth'] = '';
     $headers2['TeamNumber2'] = 'Team';
+    $headers2['MedicalInfo'] = '';
 
     $data = array();
     $data[] = $headers1;
@@ -450,6 +396,7 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
     $data['Gender'] = substr($runner->gender, 0, 1);
     $data['Age'] = 30;
     $data['TeamNumber2'] = $team->number;
+    $data['MedicalInfo'] = $runner->medicalInfo;
 
     return $data;
   }
@@ -467,9 +414,9 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
     $data['Gender'] = substr($runner->gender, 0, 1);
     $data['TeamName'] = $team->name;
     $data['Category'] = $team->category;
-    $data['DateOfBirth'] = $team->dateOfBirth;
+    $data['DateOfBirth'] = $runner->dateOfBirth;
     $data['TeamNumber2'] = $team->number;
-
+    $data['MedicalInfo'] = $runner->medicalInfo;
     return $data;
   }
 
@@ -837,6 +784,12 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
       case 'ageCategory':
         $runner->ageCategory = $value;
         break;
+      case 'dateOfBirth':
+        $runner->dateOfBirth = $value;
+        break;
+      case 'medicalInfo':
+        $runner->medicalInfo = $value;
+        break;
       default:
         return new \WP_Error(
           'rest_invalid_param',
@@ -915,12 +868,12 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
 
   public function is_valid_team_runner_update_field($value, $request, $key)
   {
-    if ($value == 'name' || $value == 'gender' || $value == 'ageCategory') {
+    if ($value == 'name' || $value == 'gender' || $value == 'ageCategory' || $value == 'dateOfBirth' || $value == 'medicalInfo') {
       return true;
     } else {
       return new \WP_Error(
         'rest_invalid_param',
-        sprintf('%s %d must be name, gender or ageCategory only.', $key, $value),
+        sprintf('%s %d must be name, gender, ageCategory, dateOfBirth or medicalInfo only.', $key, $value),
         array('status' => 400)
       );
     }
@@ -988,6 +941,24 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
 
     return true;
   }
+
+  function calculate_junior_age_category($dateOfBirth)
+  {
+    $cutoff = new \DateTime(date('Y') . '-08-31');
+    $dob = new \DateTime($dateOfBirth);
+    $age = $dob->diff($cutoff)->y;
+
+    if ($age >= 16) {
+      return null; // too old for junior
+    } elseif ($age >= 14) {
+      return 'U16';
+    } elseif ($age >= 12) {
+      return 'U14';
+    } else {
+      return 'U12';
+    }
+  }
+
   private function get_junior_team_category($team)
   {
     if (count($team->runners) != 4) {

@@ -215,7 +215,6 @@ class IpswichEkidenTeamDeclarationDataAccess
 
   public function add_team_runner($teamId, $leg, $name, $gender, $ageCategory, $dateOfBirth = null, $medicalInfo = null)
   {
-
     $sql = $this->db->prepare("INSERT INTO ietd_runners(name, age_category, gender, date_of_birth, medical_info) VALUES (%s, %s, %s, %s, %s)", $name, $ageCategory, $gender, $dateOfBirth, $medicalInfo);
 
     $result = $this->db->query($sql, OBJECT);
