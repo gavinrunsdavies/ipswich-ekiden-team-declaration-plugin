@@ -322,6 +322,7 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
     $headers1['Age'] = '';
     $headers1['TeamNumber2'] = 'Ekiden Race number format';
     $headers1['MedicalInfo'] = 'Medical info';
+    $headers1['Club'] = 'Club Name';
 
     $headers2 = array();
     $headers2['TeamNumber'] = 'Team Number';
@@ -337,6 +338,7 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
     $headers2['Age'] = 'Age';
     $headers2['TeamNumber2'] = 'Team Number';
     $headers2['MedicalInfo'] = '';
+    $headers2['Club'] = '';
 
     $data = array();
     $data[] = $headers1;
@@ -359,6 +361,7 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
     $headers1['DateOfBirth'] = 'Date of Birth';
     $headers1['TeamNumber2'] = '';
     $headers1['MedicalInfo'] = 'Medical info';
+    $headers1['Club'] = 'Club Name';
 
     $headers2 = array();
     $headers2['TeamNumber'] = 'Team Number';
@@ -372,6 +375,7 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
     $headers2['DateOfBirth'] = '';
     $headers2['TeamNumber2'] = 'Team';
     $headers2['MedicalInfo'] = '';
+    $headers2['Club'] = '';
 
     $data = array();
     $data[] = $headers1;
@@ -397,6 +401,7 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
     $data['Age'] = 30;
     $data['TeamNumber2'] = $team->number;
     $data['MedicalInfo'] = $runner->medicalInfo;
+    $data['Club'] = $team->clubName;
 
     return $data;
   }
@@ -417,6 +422,7 @@ class IpswichEkidenTeamDeclarationAPIControllerV1
     $data['DateOfBirth'] = $runner->dateOfBirth;
     $data['TeamNumber2'] = $team->number;
     $data['MedicalInfo'] = $runner->medicalInfo;
+    $data['Club'] = $team->clubName;
     return $data;
   }
 
